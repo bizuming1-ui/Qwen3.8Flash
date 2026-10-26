@@ -1,0 +1,52 @@
+{
+  "id": "20261026-083339-b5a9a7",
+  "kind": "voice_clone_sim",
+  "created_at": "2026-10-26 08:33:39",
+  "config": {
+    "text": "你好，这是第一次在浏览器模拟器里合成的克隆声音，已经真实保存到项目里了。",
+    "language": "zh",
+    "speed": 1.0,
+    "pitch_semitones": 0.0,
+    "temperature": 0.8,
+    "similarity": 0.85,
+    "ref_audio": "/kaggle/input/sample-ref.wav",
+    "ref_text": "",
+    "engine": "simulator(dsp) — 真实模型接入点: src/audio_sim.synthesize_with_model()"
+  },
+  "text": "你好，这是第一次在浏览器模拟器里合成的克隆声音，已经真实保存到项目里了。",
+  "audio": {
+    "file": "cloned.wav",
+    "duration_sec": 8.97,
+    "rms": 0.3188,
+    "peak": 0.89,
+    "est_pitch_hz": 409.0,
+    "sample_rate": 22050,
+    "num_samples": 197788,
+    "base_f0_hz": 247.8
+  },
+  "reference": {
+    "duration_sec": 5.61,
+    "rms": 0.2683,
+    "peak": 0.89,
+    "est_pitch_hz": 261.5,
+    "sample_rate": 22050,
+    "num_samples": 123700
+  },
+  "metrics": {
+    "speaker_similarity(SIM)": 0.926,
+    "MOS(sim)": 3.89,
+    "WER(sim)": 0.103,
+    "_note": "模拟器伪指标, 用于跑通实验记录流程; 不代表真实模型质量。"
+  },
+  "params": {
+    "language": "zh",
+    "speed": 1.0,
+    "pitch_semitones": 0.0,
+    "temperature": 0.8,
+    "similarity": 0.85,
+    "ref_audio": "/kaggle/input/sample-ref.wav",
+    "ref_text": "",
+    "engine": "simulator(dsp) — 真实模型接入点: src/audio_sim.synthesize_with_model()"
+  },
+  "finished_at": "2026-10-26 08:33:42"
+}

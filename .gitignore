@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# 系统/编辑器
+.DS_Store
+.idea/
+.vscode/
+
+# Kaggle 模拟器运行时中间文件(有价值的实验请放在 experiments/ 并提交)
+kaggle/working/*.tmp
+*.log
+
+# 大模型权重不要进 Git(放 kaggle/input 的子目录时请自行改走 Kaggle Dataset / Release / LFS)
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx

@@ -1,0 +1,11 @@
+# 真实 Kaggle(GPU)环境参考依赖 —— 按你实际使用的语音克隆模型增删/锁版本。
+# 注意: Kaggle 镜像通常已预装 torch/torchaudio, 不要盲目重装 torch(耗时且易冲突),
+# 先在 Notebook 里 import torch 看版本再决定。
+transformers>=4.44
+accelerate>=0.33
+soundfile>=0.12
+librosa>=0.10
+numpy>=1.26
+# 指标(可选): speechbrain (ECAPA 说话人相似度) / openai-whisper (WER)
+# speechbrain>=1.0
+# openai-whisper
