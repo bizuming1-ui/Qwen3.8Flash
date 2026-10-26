@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qwen3.8Flash Voice Lab · Kaggle 模拟器</title>
+<link rel="stylesheet" href="/web/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">🎙️ <b>Qwen3.8Flash</b> Voice Lab <span class="tag">Kaggle 模拟器</span></div>
+  <div class="head-right">
+    <span class="pill" id="runtimePill">运行环境…</span>
+    <span class="pill" id="sessionPill">会话 00:00</span>
+    <span class="pill git" id="gitPill" title="">Git …</span>
+    <button id="btnCommit" class="btn ghost">💾 提交到项目</button>
+    <button id="btnPush" class="btn primary">⬆️ 推送 GitHub</button>
+  </div>
+</header>
+
+<div id="layout">
+  <!-- 左侧: 项目真实文件 -->
+  <aside id="sidebar">
+    <section>
+      <h3>📓 Notebooks <small>(项目真实文件)</small></h3>
+      <div id="nbList" class="filelist"></div>
+      <div class="row">
+        <input id="nbName" type="text" value="my_kaggle_voice_clone" placeholder="Notebook 名称">
+      </div>
+      <div class="row">
+        <button class="btn small" id="btnNewNb">＋ 新建</button>
+        <button class="btn small primary" id="btnSaveNb">💾 保存 .ipynb+.py</button>
+      </div>
+      <button class="btn small wide" id="btnImport">📥 粘贴我的完整 Kaggle 代码导入</button>
+    </section>
+    <section>
+      <h3>🗂️ /kaggle 目录映射</h3>
+      <div class="hint">/kaggle/input → kaggle/input<br>/kaggle/working → kaggle/working<br>均为项目内真实文件夹</div>
+      <div id="fileTree" class="filelist"></div>
+      <label class="btn small wide filebtn">⬆️ 上传数据集到 /kaggle/input
+        <input type="file" id="fileUpload" hidden multiple>
+      </label>
+      <button class="btn small wide" id="btnSymlink">🔗 尝试创建 /kaggle 软链（可选）</button>
+    </section>
+  </aside>
+
+  <!-- 右侧: 三大模拟器 -->
+  <main>
+    <nav id="tabs">
+      <button class="tab active" data-tab="notebook">📓 Kaggle Notebook 模拟器</button>
+      <button class="tab" data-tab="voice">🎙️ 语音克隆实验室</button>
+      <button class="tab" data-tab="experiments">🧪 实验记录</button>
+    </nav>
+
+    <!-- Notebook -->
+    <section id="tab-notebook" class="tabpane active">
+      <div class="toolbar">
+        <button class="btn small" id="btnRunAll">▶▶ 运行全部格子</button>
+        <button class="btn small" id="btnAddCell">＋ 代码格</button>
+        <button class="btn small" id="btnAddMd">＋ 说明格(Markdown)</button>
+        <button class="btn small warn" id="btnRestart">↺ 重启内核</button>
+        <span class="hint">支持 <code>!pip install</code>、<code>%cd</code>、<code>/kaggle/working</code> 路径自动翻译 · 变量跨格保留（同真实 Notebook）</span>
+      </div>
+      <div id="cells"></div>
+    </section>
+
+    <!-- 语音克隆 -->
+    <section id="tab-voice" class="tabpane">
+      <div class="notice">ℹ️ 当前引擎 = <b>DSP 管线模拟器</b>（无 GPU 也能跑通实验流程；波形/频谱/音高是真实分析）。
+        在真实 Kaggle 里把你的 Qwen3-TTS 克隆代码粘到左边 Notebook 模拟器运行，生成的 wav 会自动出现在 /kaggle/working 并能在这里选中试听；真实模型接入点见 <code>src/audio_sim.py::synthesize_with_model()</code>。</div>
+      <div class="grid2">
+        <div class="card">
+          <h4>1️⃣ 参考声音（被克隆的音色）</h4>
+          <div class="row">
+            <label class="btn small filebtn">🎧 上传参考 wav <input type="file" id="refUpload" accept=".wav,audio/wav" hidden></label>
+            <button class="btn small" id="btnRec">🔴 浏览器录音</button>
+            <select id="refFromWorking"><option value="">或选 working 里的 wav…</option></select>
+          </div>
+          <canvas id="refWave" width="640" height="110"></canvas>
+          <audio id="refPlayer" controls></audio>
+          <input id="refText" type="text" placeholder="参考音频对应的文字（克隆模型通常需要 ref_text）">
+          <div class="hint" id="refInfo">尚未选择参考音频；也可以直接合成（用默认嗓音基频）。</div>
+          <h4>2️⃣ 要合成的文本</h4>
+          <textarea id="synthText" rows="3">你好，我是 Qwen3.8 Flash 语音克隆系统。现在正在浏览器模拟器里做实验，声音会真实保存到项目中。</textarea>
+        </div>
+        <div class="card">
+          <h4>3️⃣ 克隆参数（与 Qwen3-TTS 常见参数对齐）</h4>
+          <label>语言 <select id="pLang"><option value="zh">中文</option><option value="en">English</option><option value="ja">日本語(逐字)</option></select></label>
+          <label>音色相似度 similarity <span id="vSim">0.85</span><input type="range" id="pSim" min="0" max="1" step="0.01" value="0.85"></label>
+          <label>采样温度 temperature <span id="vTemp">0.80</span><input type="range" id="pTemp" min="0.1" max="1.5" step="0.05" value="0.8"></label>
+          <label>语速 speed <span id="vSpeed">1.00×</span><input type="range" id="pSpeed" min="0.5" max="2" step="0.05" value="1"></label>
+          <label>音高偏移 pitch <span id="vPitch">0 半音</span><input type="range" id="pPitch" min="-12" max="12" step="1" value="0"></label>
+          <button class="btn primary wide big" id="btnSynth">🎙️ 克隆合成并保存实验</button>
+          <h4>4️⃣ 合成结果</h4>
+          <canvas id="outWave" width="640" height="110"></canvas>
+          <audio id="outPlayer" controls></audio>
+          <img id="outSpec" alt="频谱图" style="display:none">
+          <div id="metrics" class="metrics"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 实验记录 -->
+    <section id="tab-experiments" class="tabpane">
+      <div class="toolbar"><button class="btn small" id="btnRefreshExp">↻ 刷新</button>
+        <span class="hint">每次合成 = experiments/&lt;时间-编号&gt;/ 下一份真实记录（config.json + cloned.wav + reference.wav + spectrogram.png），随 Git 推送一起进 GitHub。</span></div>
+      <div id="expList"></div>
+    </section>
+  </main>
+</div>
+
+<!-- 导入弹窗 -->
+<div id="importModal" class="modal" hidden>
+  <div class="modalbox">
+    <h3>📥 导入你完整的 Kaggle 代码</h3>
+    <p class="hint">把 Kaggle 里「File → Download」得到的 <b>.ipynb 全文</b>，或所有格子的 <b>.py 代码</b>，整段粘贴到下面。
+      会自动拆成单元格，并<b>真实保存</b>为 notebooks/<span id="impNameEcho"></span>.ipynb + .py。</p>
+    <input id="impName" type="text" value="kaggle_voice_clone_imported">
+    <textarea id="impText" rows="14" placeholder="# 在这里粘贴完整代码…&#10;!pip install -q transformers&#10;import torch&#10;..."></textarea>
+    <label class="hint"><input type="checkbox" id="impFileToggle"> 或改用文件选择（.ipynb / .py）</label>
+    <input type="file" id="impFile" accept=".ipynb,.py,.txt" hidden>
+    <div class="row right">
+      <button class="btn" id="btnImportCancel">取消</button>
+      <button class="btn primary" id="btnImportGo">导入并保存到项目</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="/web/app.js"></script>
+</body>
+</html>
