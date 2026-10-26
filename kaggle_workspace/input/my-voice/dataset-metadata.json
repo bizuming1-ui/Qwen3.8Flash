@@ -1,0 +1,19 @@
+{
+  "id": "my-voice",
+  "name": "我的参考语音 (自定义)",
+  "kagglePath": "/kaggle/input/my-voice",
+  "localPath": "kaggle_workspace/input/my-voice",
+  "simulated": true,
+  "description": "用于 few-shot 语音克隆的目标说话人参考音频。请把自己的音频放到 /kaggle/input/my-voice/。",
+  "license": "private",
+  "sizeLabel": "18.4 MB",
+  "mountedAt": "2026-10-26T09:09:52.402Z",
+  "files": [
+    "reference.wav",
+    "sample_001.wav",
+    "sample_002.wav",
+    "transcript.txt",
+    "metadata.csv"
+  ],
+  "warning": "这是占位数据集：目录里只有元数据/清单，没有真实音频。真实数据请在 Kaggle 上挂载或自行上传。"
+}

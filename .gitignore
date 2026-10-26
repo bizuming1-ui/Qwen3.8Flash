@@ -1,0 +1,52 @@
+# ---- dependencies / runtimes ----
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.npm/
+.cache/
+.DS_Store
+*.log
+.env
+.env.local
+
+# ---- editor / OS ----
+.idea/
+.vscode/
+Thumbs.db
+
+# ---- large model / audio artifacts are kept on disk, NOT pushed to GitHub ----
+# (they still exist as real files inside kaggle_workspace/, just not versioned)
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+*.bin
+*.wav
+*.flac
+*.mp3
+*.m4a
+*.ogg
+*.opus
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.npz
+*.npy
+*.parquet
+*.arrow
+
+# ---- exceptions: small metadata files that must stay versioned ----
+!kaggle_workspace/input/**/dataset-metadata.json
+!kaggle_workspace/input/**/README.md
+!kaggle_workspace/input/**/files.txt
+!kaggle_workspace/working/**/metrics.json
+!kaggle_workspace/working/**/run.log
+!kaggle_workspace/working/**/config.json
+!kaggle_workspace/working/**/README.md

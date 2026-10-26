@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kaggle Voice Lab · 语音克隆实验模拟器</title>
+  <link rel="stylesheet" href="/vendor/codemirror.css" />
+  <link rel="stylesheet" href="/vendor/theme-material-darker.css" />
+  <link rel="stylesheet" href="/vendor/addon-foldgutter.css" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- ============================ TOP BAR ============================ -->
+    <header class="topbar">
+      <div class="brand" title="Kaggle Voice Lab">
+        <svg viewBox="0 0 40 32" width="34" height="28" aria-hidden="true">
+          <rect x="1"  y="12" width="3" height="8"  rx="1.5" fill="#38bdf8"/>
+          <rect x="6"  y="7"  width="3" height="18" rx="1.5" fill="#22d3ee"/>
+          <rect x="11" y="2"  width="3" height="28" rx="1.5" fill="#38bdf8"/>
+          <rect x="16" y="9"  width="3" height="14" rx="1.5" fill="#a78bfa"/>
+          <rect x="21" y="4"  width="3" height="24" rx="1.5" fill="#22d3ee"/>
+          <rect x="26" y="11" width="3" height="10" rx="1.5" fill="#38bdf8"/>
+          <rect x="31" y="8"  width="3" height="16" rx="1.5" fill="#a78bfa"/>
+          <rect x="36" y="13" width="3" height="6"  rx="1.5" fill="#22d3ee"/>
+        </svg>
+        <div class="brand-text">
+          <strong>Kaggle Voice Lab</strong>
+          <span>本地模拟器 · 代码真实落盘</span>
+        </div>
+      </div>
+
+      <div class="nb-picker">
+        <label for="notebook-select">笔记本</label>
+        <select id="notebook-select" aria-label="选择笔记本"></select>
+        <button class="btn btn-ghost btn-sm" id="btn-new-notebook" title="新建笔记本">＋</button>
+      </div>
+
+      <div id="save-state" class="save-state" title="所有编辑会自动保存到项目文件">
+        <span class="dot"></span><span class="save-text">正在连接…</span>
+      </div>
+
+      <div class="toolbar">
+        <button class="btn btn-primary" id="btn-import" title="Ctrl/⌘ + I">⬇ 导入完整 Kaggle 代码</button>
+        <button class="btn" id="btn-save" title="Ctrl/⌘ + S">💾 保存</button>
+        <button class="btn btn-accent" id="btn-run" title="模拟运行全部 cell">▶ 模拟运行</button>
+        <button class="btn" id="btn-git" title="Ctrl/⌘ + G">☁ 提交到 GitHub</button>
+        <button class="btn btn-icon" id="btn-help" title="使用说明">?</button>
+      </div>
+    </header>
+
+    <!-- ============================ BODY ============================ -->
+    <div class="body-grid">
+      <!-- ---------------------- LEFT SIDEBAR ---------------------- -->
+      <aside class="sidebar sidebar-left">
+        <div class="side-scroll">
+          <section class="side-section">
+            <div class="side-title"><span>📓 单元格导航</span><span id="cell-count" class="count">0</span></div>
+            <div id="cell-nav" class="cell-nav"></div>
+          </section>
+
+          <section class="side-section">
+            <div class="side-title"><span>📁 /kaggle/input · 数据集</span>
+              <button class="mini-btn" id="btn-datasets" title="数据集模拟器">挂载</button></div>
+            <div id="tree-input" class="file-tree"></div>
+          </section>
+
+          <section class="side-section">
+            <div class="side-title"><span>📤 /kaggle/working · 产物</span>
+              <button class="mini-btn" id="btn-new-file" title="新建文件">＋文件</button></div>
+            <div id="tree-working" class="file-tree"></div>
+          </section>
+
+          <section class="side-section">
+            <div class="side-title"><span>🧪 实验记录</span><span id="exp-count" class="count">0</span></div>
+            <div id="experiment-list" class="experiment-list"></div>
+          </section>
+
+          <section class="side-section">
+            <div class="side-title"><span>📦 项目文件</span></div>
+            <div id="nb-files" class="nb-files"></div>
+          </section>
+        </div>
+      </aside>
+
+      <!-- ---------------------- NOTEBOOK ---------------------- -->
+      <main class="notebook-pane" id="notebook-pane">
+        <div class="nb-header">
+          <div>
+            <h1 id="nb-title">—</h1>
+            <div class="nb-meta" id="nb-meta"></div>
+          </div>
+          <div class="nb-badges">
+            <span class="pill pill-sim">SIMULATED RUNTIME</span>
+            <span class="pill">Python 3</span>
+            <span class="pill">GPU T4 ×2 (模拟)</span>
+          </div>
+        </div>
+
+        <!-- streaming run panel -->
+        <section class="run-panel hidden" id="run-panel">
+          <div class="run-panel-head">
+            <div><strong>▶ 模拟运行输出</strong> <span class="pill pill-sim">模拟数据 · 非真实训练</span></div>
+            <div class="run-head-right">
+              <span id="run-stage" class="run-stage">准备中…</span>
+              <button class="mini-btn" id="btn-run-panel-toggle">收起</button>
+              <button class="mini-btn" id="btn-run-stop" title="断开事件流">■ 停止</button>
+            </div>
+          </div>
+          <div class="progress-wrap"><div id="run-progress" class="progress-bar"></div></div>
+          <div class="run-panel-body" id="run-panel-body">
+            <pre id="run-log" class="out-text"></pre>
+            <div class="chart-box">
+              <div class="chart-title">训练曲线（模拟） <span id="chart-legend"></span></div>
+              <canvas id="run-chart" height="190"></canvas>
+            </div>
+          </div>
+          <div class="run-summary" id="run-summary"></div>
+        </section>
+
+        <div id="cells" class="cells"></div>
+        <div class="add-cell-row">
+          <button class="btn btn-ghost" data-add="code">＋ 代码单元格</button>
+          <button class="btn btn-ghost" data-add="markdown">＋ Markdown</button>
+        </div>
+
+        <div class="disclaimer">
+          ⚠️ 本页面是<strong>本地模拟器</strong>：日志、loss 曲线、GPU 指标都是模拟的，不会真的训练模型。
+          但你粘贴/编辑的代码会<strong>真实写入</strong> <code>kaggle_workspace/notebooks/*.ipynb</code> 与
+          <code>*.py</code>，可随时上传回 Kaggle 或提交到 GitHub。
+        </div>
+      </main>
+
+      <!-- ---------------------- RIGHT SIDEBAR ---------------------- -->
+      <aside class="sidebar sidebar-right">
+        <div class="side-scroll">
+          <section class="side-section">
+            <div class="side-title"><span>🖥️ 环境模拟器</span><span class="live-dot"></span></div>
+            <div class="env-card">
+              <div class="env-row"><span>状态</span><b class="ok-text" id="env-status">● 运行中 (模拟)</b></div>
+              <div class="env-row"><span>会话时长</span><b id="env-uptime">00:00:00</b></div>
+              <div class="env-row"><span>加速器</span><b id="env-gpu">—</b></div>
+              <div class="env-row"><span>Python</span><b id="env-python">—</b></div>
+              <div class="env-row"><span>网络</span><b id="env-internet">—</b></div>
+            </div>
+            <div class="gauge" data-gauge="gpu"><label>GPU 显存 <span>4.2 / 16 GB</span></label><div class="track"><i style="width:26%"></i></div></div>
+            <div class="gauge" data-gauge="cpu"><label>CPU <span>32%</span></label><div class="track"><i style="width:32%"></i></div></div>
+            <div class="gauge" data-gauge="ram"><label>内存 <span>7.1 / 29.3 GB</span></label><div class="track"><i style="width:24%"></i></div></div>
+            <div class="gauge" data-gauge="disk"><label>磁盘 <span>0.6 / 20 GB</span></label><div class="track"><i style="width:12%"></i></div></div>
+          </section>
+
+          <section class="side-section">
+            <div class="side-title"><span>🔍 代码静态分析</span></div>
+            <div id="analysis-box" class="analysis-box"></div>
+          </section>
+
+          <section class="side-section">
+            <div class="side-title"><span>☁️ Git 状态</span>
+              <button class="mini-btn" id="btn-git-refresh">刷新</button></div>
+            <div id="git-mini" class="git-mini"></div>
+          </section>
+
+          <section class="side-section">
+            <div class="side-title"><span>📚 预装包 (模拟)</span></div>
+            <div id="package-chips" class="chips"></div>
+            <p class="tiny-note" id="env-note"></p>
+          </section>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ============================ CONSOLE ============================ -->
+    <footer class="console" id="console">
+      <div class="console-tabs">
+        <button class="console-tab active" data-tab="log">运行日志</button>
+        <button class="console-tab" data-tab="files">文件变更</button>
+        <button class="console-tab" data-tab="git">Git 输出</button>
+        <button class="console-tab" data-tab="sys">系统消息</button>
+        <span class="console-spacer"></span>
+        <button class="mini-btn" id="btn-clear-console">清空</button>
+        <button class="mini-btn" id="btn-toggle-console">▾</button>
+      </div>
+      <div class="console-body" id="console-body"><pre id="console-pre"></pre></div>
+    </footer>
+  </div>
+
+  <!-- ============================ MODALS ============================ -->
+  <div class="modal-overlay hidden" id="modal-import">
+    <div class="modal modal-lg">
+      <div class="modal-head">
+        <div><h2>⬇ 导入完整 Kaggle 代码</h2><p>粘贴 <code>.ipynb</code> JSON、<code>.py</code> 全文或任意代码文本。内容会立刻写入项目文件。</p></div>
+        <button class="modal-close" data-close>✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label>笔记本名称</label>
+          <input id="import-name" type="text" placeholder="例如：My Voice Clone — Kaggle 完整代码" />
+        </div>
+        <div class="form-row form-row-inline">
+          <div><label>导入模式</label>
+            <select id="import-mode">
+              <option value="auto">自动识别（推荐）</option>
+              <option value="ipynb">.ipynb / Notebook JSON</option>
+              <option value="py">Python 脚本（按 # %% 拆 cell）</option>
+              <option value="code">纯代码（保留为 1 个 cell）</option>
+            </select>
+          </div>
+          <label class="checkbox"><input type="checkbox" id="import-split" checked /> 按 <code># %%</code> 自动拆分为多个 cell</label>
+          <div class="detect-info" id="import-detect">等待粘贴…</div>
+        </div>
+        <div class="form-row">
+          <label>代码内容 <span class="tiny-note" id="import-size">0 字符</span></label>
+          <div class="drop-zone" id="import-drop">
+            <textarea id="import-content" spellcheck="false" placeholder="在这里粘贴你在 Kaggle 里的完整 Notebook 代码 / .ipynb JSON / .py 脚本…"></textarea>
+            <div class="drop-hint">也可以把 .ipynb / .py 文件拖到这里，或
+              <label class="file-label">选择文件<input type="file" id="import-file" accept=".ipynb,.py,.txt,.json,.md" /></label>
+            </div>
+          </div>
+        </div>
+        <div class="info-banner">
+          ✅ 导入后生成两个<strong>真实文件</strong>：
+          <code>kaggle_workspace/notebooks/&lt;名称&gt;.ipynb</code> 和 <code>&lt;名称&gt;.py</code>。
+          浏览器刷新/关闭都不会丢失，因为文件在仓库磁盘上。
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close>取消</button>
+        <button class="btn" id="btn-import-save">💾 只保存到项目</button>
+        <button class="btn btn-primary" id="btn-import-sync">🚀 保存并提交到 GitHub</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="modal-git">
+    <div class="modal modal-lg">
+      <div class="modal-head">
+        <div><h2>☁️ 提交到 GitHub</h2><p>对当前仓库执行真实的 <code>git add / commit / push</code>。</p></div>
+        <button class="modal-close" data-close>✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="git-status-grid" id="git-status-grid"></div>
+        <div class="form-row">
+          <label>提交信息</label>
+          <input id="git-message" type="text" placeholder="例如：保存 Kaggle 语音克隆完整代码" />
+        </div>
+        <div class="git-buttons">
+          <button class="btn" id="btn-git-commit">① 仅 commit</button>
+          <button class="btn btn-primary" id="btn-git-sync">🚀 提交并推送 GitHub</button>
+          <button class="btn btn-ghost" id="btn-git-push">② 仅 push</button>
+        </div>
+        <div class="split-cols">
+          <div><h3>改动文件 <span id="git-file-count" class="count">0</span></h3><div id="git-file-list" class="git-file-list"></div></div>
+          <div><h3>执行输出</h3><pre id="git-output" class="out-text small">(等待操作)</pre></div>
+        </div>
+        <div class="split-cols">
+          <div><h3>最近提交</h3><div id="git-commits" class="commit-list"></div></div>
+          <div><h3>diff --stat</h3><pre id="git-diff" class="out-text small"></pre></div>
+        </div>
+      </div>
+      <div class="modal-foot"><button class="btn btn-ghost" data-close>关闭</button><a id="git-repo-link" class="btn btn-ghost" target="_blank" rel="noopener">↗ 打开 GitHub 仓库</a></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="modal-datasets">
+    <div class="modal modal-lg">
+      <div class="modal-head">
+        <div><h2>📁 数据集模拟器 · /kaggle/input</h2><p>挂载会在 <code>kaggle_workspace/input/</code> 创建真实的元数据文件；<strong>不会下载 GB 级音频</strong>。</p></div>
+        <button class="modal-close" data-close>✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="dataset-catalog" class="dataset-catalog"></div>
+        <h3>挂载自定义数据集</h3>
+        <div class="form-row form-row-inline">
+          <div><label>ID / 目录名</label><input id="ds-id" placeholder="my-voice-2" /></div>
+          <div><label>显示名称</label><input id="ds-name" placeholder="我的第二批录音" /></div>
+        </div>
+        <div class="form-row"><label>文件清单（每行一个，占位）</label><textarea id="ds-files" rows="3" placeholder="reference.wav&#10;metadata.csv"></textarea></div>
+        <button class="btn btn-primary" id="btn-ds-mount">＋ 挂载</button>
+      </div>
+      <div class="modal-foot"><button class="btn btn-ghost" data-close>关闭</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="modal-file">
+    <div class="modal modal-lg">
+      <div class="modal-head">
+        <div><h2 id="file-title">文件</h2><p id="file-path" class="mono"></p></div>
+        <button class="modal-close" data-close>✕</button>
+      </div>
+      <div class="modal-body"><pre id="file-content" class="out-text file-view"></pre></div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-close>关闭</button>
+        <button class="btn btn-danger" id="btn-file-delete">删除文件</button>
+        <a class="btn btn-primary" id="btn-file-download" href="#" download>⬇ 下载</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="modal-new">
+    <div class="modal">
+      <div class="modal-head"><div><h2>＋ 新建笔记本</h2><p>创建后会立即生成 .ipynb 和 .py 两个真实文件。</p></div><button class="modal-close" data-close>✕</button></div>
+      <div class="modal-body">
+        <div class="form-row"><label>名称</label><input id="new-name" placeholder="语音克隆 · 实验二" /></div>
+        <label class="checkbox"><input type="checkbox" id="new-template" /> 使用语音克隆模板填充（而不是空白 notebook）</label>
+      </div>
+      <div class="modal-foot"><button class="btn btn-ghost" data-close>取消</button><button class="btn btn-primary" id="btn-new-create">创建</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="modal-newfile">
+    <div class="modal">
+      <div class="modal-head"><div><h2>＋ 新建真实文件</h2><p>在 /kaggle/working 或 /kaggle/input 下创建文件，会立刻写入磁盘。</p></div><button class="modal-close" data-close>✕</button></div>
+      <div class="modal-body">
+        <div class="form-row form-row-inline">
+          <div><label>目录</label><select id="nf-dir"><option value="working">working (/kaggle/working)</option><option value="input">input (/kaggle/input)</option></select></div>
+          <div><label>文件名</label><input id="nf-name" placeholder="notes.md" /></div>
+        </div>
+        <div class="form-row"><label>内容</label><textarea id="nf-content" rows="6" placeholder="文件内容…"></textarea></div>
+      </div>
+      <div class="modal-foot"><button class="btn btn-ghost" data-close>取消</button><button class="btn btn-primary" id="btn-nf-create">创建文件</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="modal-help">
+    <div class="modal modal-lg">
+      <div class="modal-head"><div><h2>❓ 使用说明</h2><p>Kaggle Voice Lab · 本地 Kaggle / 实验模拟器</p></div><button class="modal-close" data-close>✕</button></div>
+      <div class="modal-body help-body" id="help-body"></div>
+      <div class="modal-foot"><button class="btn btn-ghost" data-close>知道了</button></div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <!-- CodeMirror 5 (vendored locally — works offline) -->
+  <script src="/vendor/codemirror.js"></script>
+  <script src="/vendor/mode-python.js"></script>
+  <script src="/vendor/mode-markdown.js"></script>
+  <script src="/vendor/mode-javascript.js"></script>
+  <script src="/vendor/mode-shell.js"></script>
+  <script src="/vendor/mode-yaml.js"></script>
+  <script src="/vendor/addon-closebrackets.js"></script>
+  <script src="/vendor/addon-comment.js"></script>
+  <script src="/vendor/addon-autorefresh.js"></script>
+  <script src="/vendor/addon-active-line.js"></script>
+  <script src="/vendor/addon-foldcode.js"></script>
+  <script src="/vendor/addon-foldgutter.js"></script>
+  <script src="/vendor/addon-brace-fold.js"></script>
+  <script src="/vendor/addon-comment-fold.js"></script>
+  <script src="/vendor/addon-indent-fold.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
