@@ -37,7 +37,7 @@
 | `working/runs/<runId>/` | `run.log`、`metrics.json`、`config.json`、`README.md` | 模拟运行结束时 |
 | `working/latest_metrics.json` | 最近一次曲线 | 模拟运行结束时 |
 | `experiments/<runId>.json` | 分析摘要 + 指标 + 产物清单 | 模拟运行结束时 |
-| `settings.json` | 当前笔记本、自动保存间隔、模拟速度 | 用户切换设置 |
+| `settings.json` | 当前笔记本、自动保存间隔、模拟速度、`autoSyncOnImport` | 用户切换设置 / 勾选自动同步 |
 
 所有写操作走 `workspace.writeText/writeJson/writeBase64`：
 
@@ -58,8 +58,11 @@
        ↓
   createNotebook() → saveNotebook() → 写 .ipynb + .py
        ↓
-  可选 sync=true → git.commit() → git.push()
+  sync=true（按钮或 settings.autoSyncOnImport）→ git.commit() → git.push()
 ```
+
+自动同步开关存在 `kaggle_workspace/settings.json`，因此重启服务后仍然生效；
+它只作用于**导入**，普通 cell 编辑仍然由你决定何时提交（避免产生大量琐碎 commit）。
 
 `cellsToPy()` 生成的可往返格式（Kaggle / Jupytext 风格）：
 

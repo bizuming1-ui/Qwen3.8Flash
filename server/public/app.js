@@ -108,6 +108,8 @@ async function loadBootstrap(keepId = true, preferId = null) {
   S.boot = b;
   S.notebooks = b.notebooks || [];
   S.settings = { ...S.settings, ...(b.settings || {}) };
+  const autoSync = $('#import-autosync');
+  if (autoSync) autoSync.checked = !!S.settings.autoSyncOnImport;
   S.experiments = b.experiments || [];
   S.datasets = b.datasets || { catalog: [], mounted: [] };
   S.git = b.git || null;
@@ -897,7 +899,8 @@ function detectImport(text) {
     : '✓ 纯代码文本 · 将完整保存为 1 个 cell';
 }
 
-async function doImport(sync) {
+async function doImport(syncRequested) {
+  const sync = !!syncRequested || !!S.settings.autoSyncOnImport;
   const content = $('#import-content').value;
   if (!content.trim()) { toast('没有内容', '请先粘贴 Kaggle 代码', 'warn'); return; }
   const name = $('#import-name').value.trim() || `kaggle-code-${new Date().toISOString().slice(0, 10)}`;
@@ -984,6 +987,11 @@ async function mountDataset(id, mounted) {
 function showModal(id) { $('#' + id).classList.remove('hidden'); }
 function hideModal(id) { $('#' + id).classList.add('hidden'); }
 function hideAllModals() { $$('.modal-overlay').forEach((m) => m.classList.add('hidden')); }
+function openImportModal() {
+  $('#import-autosync').checked = !!S.settings.autoSyncOnImport;
+  showModal('modal-import');
+  setTimeout(() => $('#import-content').focus(), 60);
+}
 
 function renderHelp() {
   const b = S.boot || { app: {}, environment: {} };
@@ -1038,7 +1046,7 @@ function bindEvents() {
     if (S.dirty && !confirm('当前笔记本有未保存更改，确定切换？')) { renderNotebookSelect(); return; }
     saveNow(true).then(() => openNotebook(e.target.value));
   });
-  $('#btn-import').addEventListener('click', () => { showModal('modal-import'); setTimeout(() => $('#import-content').focus(), 60); });
+  $('#btn-import').addEventListener('click', openImportModal);
   $('#btn-save').addEventListener('click', () => saveNow());
   $('#btn-run').addEventListener('click', runAll);
   $('#btn-git').addEventListener('click', openGitModal);
@@ -1087,6 +1095,19 @@ function bindEvents() {
 
   // import
   $('#import-content').addEventListener('input', (e) => detectImport(e.target.value));
+  $('#import-autosync').addEventListener('change', async (e) => {
+    try {
+      const r = await api('/settings', 'PUT', {
+        autoSyncOnImport: e.target.checked,
+        autoCommitOnImport: e.target.checked,
+      });
+      S.settings = { ...S.settings, ...r.settings };
+      toast(e.target.checked ? '已开启自动同步' : '已关闭自动同步',
+        e.target.checked ? '以后每次导入完整 Kaggle 代码都会自动 commit + push 到 GitHub' : '导入只会保存到项目磁盘',
+        'success', 'kaggle_workspace/settings.json');
+      clog('git', `autoSyncOnImport = ${e.target.checked}`);
+    } catch (err) { e.target.checked = !e.target.checked; toast('设置保存失败', err.message, 'error'); }
+  });
   $('#import-file').addEventListener('change', (e) => handleImportFile(e.target.files[0]));
   const dz = $('#import-drop');
   ['dragenter', 'dragover'].forEach((t) => dz.addEventListener(t, (e) => { e.preventDefault(); dz.classList.add('dragover'); }));
@@ -1161,7 +1182,7 @@ function bindEvents() {
     const mod = e.ctrlKey || e.metaKey;
     if (e.key === 'Escape') { hideAllModals(); return; }
     if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveNow(); }
-    if (mod && e.key.toLowerCase() === 'i') { e.preventDefault(); showModal('modal-import'); $('#import-content').focus(); }
+    if (mod && e.key.toLowerCase() === 'i') { e.preventDefault(); openImportModal(); }
     if (mod && e.key.toLowerCase() === 'g') { e.preventDefault(); openGitModal(); }
   });
 

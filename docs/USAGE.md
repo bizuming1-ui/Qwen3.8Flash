@@ -69,6 +69,8 @@ kaggle_workspace/notebooks/<名称>.py      ← "# %%" cell 导出，可重新�
 `git push origin HEAD` 只会把**当前分支**推到同名远端分支，不会误推 `main`。
 
 > 也可以在导入时直接点「🚀 保存并提交到 GitHub」，一步完成落盘 + commit + push。
+> 想**完全自动**：在导入窗口勾选「以后每次导入都自动 commit + push 到 GitHub」，
+> 之后只要粘贴代码点「只保存到项目」，服务端也会自动 commit + push（设置持久化在 `settings.json`）。
 
 ---
 

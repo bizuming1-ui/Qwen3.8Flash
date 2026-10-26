@@ -49,6 +49,8 @@ npm run seed                            # 从命令行再生成一份语音克�
    - 粘贴 `.py` → 按 `# %%` / `# In[]` 分隔符拆成 cell
    - 没有分隔符 → **完整保留为 1 个 cell**，绝不静默改写你的代码
 3. 点 **「只保存到项目」** 或 **「保存并提交到 GitHub」**。
+   如果希望**以后每次粘贴代码都自动更新 GitHub**，勾选导入窗口里的
+   「以后每次导入都自动 commit + push 到 GitHub」（设置保存在 `kaggle_workspace/settings.json`）。
 
 生成的文件：
 

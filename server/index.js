@@ -95,6 +95,7 @@ function getSettings() {
     autosaveMs: 1200,
     simulationSpeed: 1,
     autoCommitOnImport: false,
+    autoSyncOnImport: false,
   });
 }
 function putSettings(patch) {
