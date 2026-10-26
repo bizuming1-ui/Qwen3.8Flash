@@ -91,6 +91,7 @@
           <button class="view-tab" data-view="replica">🌐 网站复刻</button>
           <button class="view-tab" data-view="assets">🧬 源码资产</button>
           <button class="view-tab" data-view="api">🔌 API 兼容矩阵</button>
+          <button class="view-tab" data-view="precision">🔬 精准对照</button>
           <span class="view-tabs-note" id="view-tabs-note">70/70 资产已校验</span>
         </div>
 
@@ -207,6 +208,69 @@
           </div>
           <div id="api-summary" class="asset-summary"></div>
           <div id="api-table" class="api-table"></div>
+        </div>
+
+        <!-- ============ VIEW 5: precision comparison lab ============ -->
+        <div id="view-precision" class="view hidden">
+          <div class="asset-head">
+            <div><h1>🔬 精准对照实验室</h1>
+              <p class="tiny-note">把 Kaggle 源码里的核心算法逐行移植到 Node，再在浏览器里逐项对照：
+                <code>go/gateway/segmenter.go</code> 的呼吸组分段、
+                <code>py/step18_audio_rt.py</code> + <code>py/worker.py</code> 的五种音量策略、
+                <code>go/gateway/monitor.go</code> 的脱敏白名单、
+                <code>go/gateway/security.go</code> 的准入限流，以及 worker → gateway → 浏览器的双层二进制帧。
+                波形仍是<b>明确标注的合成音</b>（本沙盒无模型权重 / GPU / DeepSeek Key），但分段、增益、限幅、协议与落盘布局都是原算法的等价实现。</p></div>
+          </div>
+          <div class="asset-summary" id="precision-summary"></div>
+          <div class="precision-grid">
+            <section class="precision-card">
+              <h3>① Go 分段器 · 精确移植</h3>
+              <p class="tiny-note">ReadSegCfg / LiveSegCfg、units 计数、clause / sentence / para / ellipsis 边界与停顿策略，全部来自 <code>segmenter.go</code>。</p>
+              <textarea id="seg-input" class="precision-input" rows="3">这是第一句，包含中文逗号；这是第二句！还有省略号……最后一段。</textarea>
+              <div class="precision-controls">
+                <select id="seg-mode" class="precision-select"><option value="read">read（直接朗读）</option><option value="chat">chat（LLM 流式）</option></select>
+                <input id="seg-seed" class="precision-num" type="number" value="42" min="0" max="2147483647" title="seed">
+                <button class="btn btn-primary btn-sm" id="btn-seg-run">▶ 切分</button>
+              </div>
+              <div id="seg-result" class="precision-out">点击「切分」查看分段结果。</div>
+            </section>
+
+            <section class="precision-card">
+              <h3>② Python DSP · 五种音量路径对照</h3>
+              <p class="tiny-note">同一段合成波形经过 <code>sentence-linear / legacy-stream / sentence-agc / sentence-agc-headroom / windowed-linear</code>，对比真实增益、峰值与输出哈希。</p>
+              <div class="precision-controls">
+                <button class="btn btn-primary btn-sm" id="btn-dsp-run">▶ 运行 5 策略</button>
+                <span class="tiny-note" id="dsp-note">共同输入：2.00 s / 48000 samples</span>
+              </div>
+              <div id="dsp-result" class="precision-out">点击「运行 5 策略」查看结果。</div>
+            </section>
+
+            <section class="precision-card">
+              <h3>③ 双层帧协议检视器</h3>
+              <p class="tiny-note">worker 层 5 字节头 <code>[type][len u32]</code>，gateway 层 9 字节头 <code>[type][seg u32][len u32]</code>；PCM 为 int16 LE 24 kHz 单声道。</p>
+              <div class="precision-controls">
+                <input id="frame-text" class="precision-text" value="帧协议检查文本。第二句。">
+                <select id="frame-policy" class="precision-select">
+                  <option value="legacy-stream">legacy-stream</option>
+                  <option value="sentence-linear">sentence-linear</option>
+                  <option value="sentence-agc">sentence-agc</option>
+                  <option value="sentence-agc-headroom">sentence-agc-headroom</option>
+                  <option value="windowed-linear">windowed-linear</option>
+                </select>
+                <button class="btn btn-primary btn-sm" id="btn-frame-run">▶ 捕获帧</button>
+              </div>
+              <div id="frame-result" class="precision-out">点击「捕获帧」抓取完整一次流式响应。</div>
+            </section>
+
+            <section class="precision-card">
+              <h3>④ Worker / 准入 / 落盘</h3>
+              <p class="tiny-note"><code>/worker/0</code> 与 <code>/worker/1</code> 复刻 <code>worker.py</code> 的 <code>/health · /profile/load · /synth</code>；Guard 的令牌桶与 1 MiB 请求体上限同样生效。</p>
+              <div class="precision-controls">
+                <button class="btn btn-sm" id="btn-worker-refresh">↻ 刷新 worker 健康</button>
+              </div>
+              <div id="worker-result" class="precision-out">点击「刷新 worker 健康」。</div>
+            </section>
+          </div>
         </div>
       </main>
 

@@ -109,9 +109,9 @@ function buildProfile({ name, language, ref_text, anchor_seconds, calibrate, fil
     simulated: true,
     created: now(),
   };
-  fs.writeFileSync(path.join(dir, 'profile.json'), JSON.stringify(profile, null, 2) + '\n');
+  store.writeProfileDisk(profile);
   st.profiles.unshift(profile);
-  if (!st.activeProfile) st.activeProfile = pid;
+  if (!st.activeProfile) store.writeActive(pid);
   store.save();
   return profile;
 }
@@ -279,7 +279,8 @@ async function handle(req, res, sub, method, helpers) {
 
   // ------------------------------- profiles --------------------------------
   if (head === 'profiles' && parts.length === 1 && method === 'GET') {
-    return ok(res, { profiles: st.profiles.map(publicProfile) });
+    const disk = store.listProfilesFromDisk();
+    return ok(res, { profiles: (disk.length ? disk : st.profiles).map(publicProfile) });
   }
   if (head === 'profiles' && parts.length === 1 && method === 'POST') {
     const raw = await U.readBody(req);
@@ -305,7 +306,7 @@ async function handle(req, res, sub, method, helpers) {
     const idx = st.profiles.findIndex((x) => x.id === parts[1]);
     if (idx < 0) throw err(404, 'not found');
     st.profiles.splice(idx, 1);
-    if (st.activeProfile === parts[1]) st.activeProfile = st.profiles[0]?.id || null;
+    if (store.readActive() === parts[1]) store.writeActive(st.profiles[0]?.id || '');
     try { fs.rmSync(path.join(store.PROFILE_DIR, parts[1]), { recursive: true, force: true }); } catch {}
     store.save();
     return ok(res, { ok: true });
@@ -368,6 +369,7 @@ async function handle(req, res, sub, method, helpers) {
       decoded_duration_verified: false, simulated: true,
     };
     st.libraries.unshift(library);
+    store.writeLibraryDisk(library);
     store.save();
     return ok(res, { library: publicLibrary(library), simulated: true }, 201);
   }
@@ -394,6 +396,7 @@ async function handle(req, res, sub, method, helpers) {
     if (!files.length) throw err(400, 'upload at least one audio file');
     checkRevision(library, fields.revision);
     addSamples(library, files);
+    store.writeLibraryDisk(library);
     store.save();
     return ok(res, { library: publicLibrary(library), simulated: true });
   }
@@ -408,6 +411,7 @@ async function handle(req, res, sub, method, helpers) {
     try { fs.unlinkSync(store.samplePath(library.id, parts[3])); } catch {}
     library.bytes = library.samples.reduce((n, s) => n + s.bytes, 0);
     library.revision += 1; library.updated = now(); library.state = 'samples_unverified';
+    store.writeLibraryDisk(library);
     store.save();
     return ok(res, { library: publicLibrary(library), simulated: true });
   }
@@ -440,6 +444,7 @@ async function handle(req, res, sub, method, helpers) {
       library.prepared_profile = profile.id;
       library.busy = false;
       library.updated = now();
+      store.writeLibraryDisk(library);
       return { profile: profile.id };
     });
     // the job id is needed inside the closure; assign before the first tick fires
@@ -447,6 +452,7 @@ async function handle(req, res, sub, method, helpers) {
     library.busy = true;
     library.last_build = { job: job.id, state: 'running', source_revision: library.revision };
     library.state = 'processing';
+    store.writeLibraryDisk(library);
     store.save();
     return ok(res, { job: job.id, library: library.id, operation: 'reference_processing_not_training', simulated: true }, 202);
   }
@@ -536,4 +542,4 @@ async function handle(req, res, sub, method, helpers) {
   throw err(404, 'unknown prep endpoint: ' + p);
 }
 
-module.exports = { handle, datasetSummary, consistencyReport, workersList };
+module.exports = { handle, datasetSummary, consistencyReport, workersList, publicProfile };

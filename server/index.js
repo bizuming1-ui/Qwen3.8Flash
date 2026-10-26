@@ -647,6 +647,55 @@ async function api(req, res, u) {
     return ok(res, { endpoints: replicaEndpointMap(), total: replicaEndpointMap().length });
   }
 
+  // ---- precision-development probes (Go segmenter / Python DSP / wire frames) ----
+  if (p === '/api/replica/segment' && method === 'POST') {
+    const b = await readJsonBody(req);
+    const text = String(b.text || '').slice(0, 20000);
+    const result = REPLICA.segment(text, {
+      mode: b.mode === 'chat' ? 'chat' : 'read',
+      seed: Number.isInteger(b.seed) ? b.seed : 42,
+    });
+    return ok(res, {
+      text, mode: b.mode === 'chat' ? 'chat' : 'read', segments: result,
+      count: result.length,
+      units: result.reduce((n, x) => n + x.units, 0),
+      cfg: b.mode === 'chat' ? 'LiveSegCfg' : 'ReadSegCfg',
+      source: 'replica/source/go/gateway/segmenter.go → server/replica/segmenter.js',
+      simulated: true,
+    });
+  }
+  if (p === '/api/replica/dsp' && method === 'POST') {
+    const b = await readJsonBody(req);
+    return ok(res, REPLICA.dspProbe({
+      text: String(b.text || '').slice(0, 20000),
+      seed: Number.isInteger(b.seed) ? b.seed : 42,
+      policy: b.policy || null,
+    }));
+  }
+  if (p === '/api/replica/frames' && method === 'POST') {
+    const b = await readJsonBody(req);
+    const run = await REPLICA.captureStream({
+      text: String(b.text || '').slice(0, 4000) || '这是一段帧协议检查文本。',
+      mode: b.mode === 'chat' ? 'chat' : 'read',
+      quality_policy: b.quality_policy || 'legacy-stream',
+      profile: b.profile || REPLICA.status().activeProfile,
+      seed: Number.isInteger(b.seed) ? b.seed : 42,
+    });
+    return ok(res, {
+      frames: run.frames, workerFrames: run.workerFrames,
+      segments: run.segments, timeline: run.timeline, run: run.run,
+      legend: {
+        client: '9-byte header [type u8][seg u32 LE][len u32 LE] + payload',
+        worker: '5-byte header [type u8][len u32 LE] + payload',
+        pcm: 'int16 LE mono @ 24000 Hz',
+      },
+      simulated: true,
+    });
+  }
+  if (p === '/api/replica/workers' && method === 'GET') {
+    return ok(res, { workers: REPLICA.workers.snapshots(), simulated: true });
+  }
+
   // ---- maintenance ---------------------------------------------------------
   if (p === '/api/seed' && method === 'POST') {
     const nb = NB.createNotebook({
@@ -727,6 +776,11 @@ const server = http.createServer(async (req, res) => {
     // 1) The byte-identical QTTS website + its complete API contract.
     if (u.pathname === '/site' || u.pathname.startsWith('/site/')) return serveReplicaStatic(req, res, u);
     if (u.pathname.startsWith('/api/')) return await REPLICA.safeHandle(req, res, u);
+    // 1b) The two py/worker.py HTTP surfaces, proxied under /worker/{0,1}/.
+    if (u.pathname.startsWith('/worker/')) {
+      if (await REPLICA.workers.handle(req, res, u)) return;
+      return sendError(res, 404, `未知 worker 接口: ${u.pathname}`);
+    }
     // 2) The Kaggle Voice Lab keeps its own API, now namespaced under /lab/api/.
     if (u.pathname.startsWith('/lab/api/')) {
       const labUrl = new URL(u.toString());

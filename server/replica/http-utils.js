@@ -1,14 +1,19 @@
 'use strict';
 /** Minimal dependency-free HTTP helpers (JSON + multipart/form-data). */
-const MAX_BODY = 40 * 1024 * 1024;
+const MAX_BODY = 128 << 20;   // go/gateway/security.go defaultLimits().UploadBytes
 
 function readBody(req, max = MAX_BODY) {
+  const limit = Math.min(max, req.maxBodyBytes || MAX_BODY);
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     req.on('data', (c) => {
       size += c.length;
-      if (size > max) { reject(Object.assign(new Error('request body too large'), { status: 413 })); req.destroy(); return; }
+      if (size > limit) {
+        reject(Object.assign(new Error('request body exceeds configured limit'), { status: 413 }));
+        req.resume();   // drain the socket so the 413 response can still be written
+        return;
+      }
       chunks.push(c);
     });
     req.on('end', () => resolve(Buffer.concat(chunks)));
@@ -20,7 +25,7 @@ async function readJson(req, max) {
   const raw = await readBody(req, max);
   if (!raw.length) return {};
   try { return JSON.parse(raw.toString('utf8')); }
-  catch { throw Object.assign(new Error('malformed or ambiguous JSON'), { status: 400 }); }
+  catch { throw Object.assign(new Error('a single valid JSON value is required'), { status: 400 }); }
 }
 
 /** Parse multipart/form-data into fields + binary files. */
@@ -78,4 +83,17 @@ function fail(status, message) {
   return Object.assign(new Error(message), { status });
 }
 
-module.exports = { MAX_BODY, readBody, readJson, parseMultipart, json, fail };
+/** denyBusy() in go/gateway/security.go: 429 + Retry-After: 5. */
+function busy(res, message) {
+  const body = JSON.stringify({ error: message });
+  res.writeHead(429, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+    'Retry-After': '5',
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  res.end(body);
+}
+
+module.exports = { MAX_BODY, readBody, readJson, parseMultipart, json, fail, busy };

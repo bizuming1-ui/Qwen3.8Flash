@@ -148,6 +148,7 @@ sync:   commit + push
 | `/lab/api/*` | 实验室 API | 上表所有端点；由主路由把 `/lab/api/x` 归一化成 `/api/x` 后交给 `api()` |
 | `/site/` | QTTS 网站复刻 | `replica/web/` 的 4 个**字节级原始文件**（相对 `<script src>` 也落在 `/site/`） |
 | `/api/*` | 复刻网站 API | `server/replica/` 实现的 Go gateway + Python analyst 契约，共 38 个端点 |
+| `/worker/{0,1}/*` | 复刻 worker HTTP | `worker.py` 的 `/health`、`/profile/load`、`/synth`（5 字节 worker 帧） |
 
 新增的实验室管理端点（都在 `/lab/api/` 下）：
 
@@ -159,9 +160,15 @@ sync:   commit + push
 | GET | `/lab/api/replica/asset?path=` | 安全读取单个源码资产（限制在 `replica/source/`） |
 | POST | `/lab/api/replica/verify` | 在线重算全部 SHA-256，返回不一致清单 |
 | GET | `/lab/api/replica/api-map` | 38 个兼容端点及原始来源文件 |
+| POST | `/lab/api/replica/segment` | 用移植的 Go 分段器切分任意文本，返回 units / 边界 / 停顿 |
+| POST | `/lab/api/replica/dsp` | 同一波形跑 5 种 Python 音量策略，返回增益 / 峰值 / 输出哈希 |
+| POST | `/lab/api/replica/frames` | 捕获一次完整流式的客户端 9B 帧 + worker 5B 帧 + 时间线 |
+| GET | `/lab/api/replica/workers` | 两个 worker 的 scheduler 快照 |
 
-复刻后端把状态写到 `kaggle_workspace/replica_state/`（真实文件，整体被 `.gitignore` 排除）。
-详见 [REPLICA.md](REPLICA.md)。
+复刻后端把状态写到 `kaggle_workspace/replica_state/`（真实文件，整体被 `.gitignore` 排除），
+并按原始 Go/Python 的目录约定额外维护 `active.json`、`profiles/<id>/profile.json`、
+`libraries/<id>/library.json`、`runs/<session>.json`。
+详见 [REPLICA.md](REPLICA.md) 与 [PRECISION.md](PRECISION.md)。
 
 ## 8. 扩展方向
 

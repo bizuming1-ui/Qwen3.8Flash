@@ -8,6 +8,12 @@
 > 并把其中 4 个网站文件**字节级原样**复刻到 `/site/`（QTTS · 双 T4 声音台），
 > 配上 Node 实现的 **38 个兼容 API**，网站所有功能在本地都能操作。
 > 详见 [网站复刻研究报告](docs/REPLICA.md)。
+>
+> 🔬 **继续精准开发**：已把 `go/gateway/segmenter.go`（呼吸组分段）、
+> `py/step18_audio_rt.py` + `py/worker.py`（五种音量 DSP）、`go/gateway/security.go`
+> （准入限流）、`go/gateway/monitor.go`（诊断脱敏）逐行移植到 Node，
+> 并补齐 worker → gateway → 浏览器的**双层二进制帧**与原始 `state/` 磁盘布局。
+> 浏览器新增「🔬 精准对照」视图可在线运行 4 组探针，详见 [精准开发报告](docs/PRECISION.md)。
 
 [![branch](https://img.shields.io/badge/branch-arena%2F3de266c9--qwen3--8flash-blue)](#) [![runtime](https://img.shields.io/badge/node-%E2%89%A518-339933)](#)
 
@@ -42,7 +48,7 @@ PORT=8080 npm start                    # 换端口
 ENABLE_LOCAL_PYTHON=1 npm start        # 可选：允许真实执行轻量 Python 片段（默认关闭，见安全说明）
 npm run extract                         # 从 kaggle.ipynb 重新解包 + SHA-256 校验 70 个源码资产
 npm run check                           # 语法检查所有服务端 JS
-npm test                                # 62 项：语法 + HTTP 契约 + 浏览器(jsdom) 端到端
+npm test                                # 86 项：语法 + HTTP 契约 + 浏览器(jsdom) 端到端
 npm run seed                            # 从命令行再生成一份语音克隆模板 notebook
 ```
 
@@ -83,7 +89,7 @@ kaggle_workspace/notebooks/<名称>.py      ← "# %%" cell 导出，可重新�
 
 右侧「Git 状态」和顶部「提交到 GitHub」不是模拟器 —— 它们调用真实的 `git`。
 
-### 网站复刻的三个新页面
+### 网站复刻的四个新页面
 
 在实验室顶部切换：
 
@@ -93,6 +99,8 @@ kaggle_workspace/notebooks/<名称>.py      ← "# %%" cell 导出，可重新�
   在线重算 SHA-256 校验。
 - **🔌 API 兼容矩阵** — 列出 38 个端点的原始来源（Go gateway / Python analyst /
   library_api / diagnostic_pair）与实现状态。
+- **🔬 精准对照** — 在线运行 Go 分段器、5 种 Python DSP 策略、双层帧检视器、
+  worker/Guard/落盘快照；结果与原始源码算法逐项对照（见 `docs/PRECISION.md`）。
 
 ---
 
@@ -111,7 +119,15 @@ Qwen3.8Flash/
 │   │   └── git.js               # 真实 git status / commit / push
 │   └── public/                  # 浏览器 UI（index.html / styles.css / app.js）
 │       └── vendor/              # 本地 CodeMirror 5（无 CDN）
-├── scripts/                     # vendor-assets / check / seed
+│   ├── replica/                 # ★ Node 版 Go gateway + Python worker 精确移植
+│   │   ├── segmenter.js         #   go/gateway/segmenter.go 呼吸组分段
+│   │   ├── dsp.js               #   step18_audio_rt.py + worker.py 五种音量策略
+│   │   ├── limits.js            #   security.go 令牌桶 / 并发槽 / validateSpeak
+│   │   ├── diagnostics.js       #   monitor.go 字段白名单脱敏
+│   │   ├── workers.js           #   worker.py 的 /health /profile/load /synth
+│   │   ├── protocol.js          #   worker(5B) → gateway → browser(9B) 双层帧
+│   │   └── store.js             #   active.json / profiles / libraries / runs 落盘
+├── scripts/                     # extract-kaggle-assets / check / test-* / seed
 ├── kaggle_workspace/            # ★ 你的所有真实数据都在这里，会被提交到 GitHub
 │   ├── notebooks/               # 你的 Kaggle 代码（.ipynb + .py）
 │   ├── input/                   # 模拟 /kaggle/input
@@ -123,6 +139,7 @@ Qwen3.8Flash/
 │   └── web/                     #   4 个网站文件（与 Kaggle 内嵌资源字节一致）
 ├── docs/
 │   ├── REPLICA.md               # ★ QTTS 网站复刻 · 代码研究报告
+│   ├── PRECISION.md             # ★ 精准开发报告 · 逐算法移植对照
 │   ├── ARCHITECTURE.md          # 架构、API、持久化与安全设计
 │   ├── USAGE.md                 # 详细使用说明 / 快捷键 / FAQ
 │   └── VOICE_CLONE_GUIDE.md     # 语音克隆在 Kaggle 上的工程建议
@@ -149,6 +166,7 @@ Qwen3.8Flash/
 ## 文档
 
 - 🌐 [QTTS 网站复刻 · 代码研究报告](docs/REPLICA.md) ← 你的 Kaggle 代码到底做了什么
+- 🔬 [精准开发报告](docs/PRECISION.md) ← 分段 / DSP / 限流 / 脱敏 / 双层帧如何逐行移植
 - 📘 [使用说明（含快捷键与 FAQ）](docs/USAGE.md)
 - 🏗 [架构与 API 设计](docs/ARCHITECTURE.md)
 - 🎙 [语音克隆 Kaggle 工程建议](docs/VOICE_CLONE_GUIDE.md)

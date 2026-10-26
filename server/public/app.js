@@ -1054,7 +1054,7 @@ function renderConsole() {
 function switchView(name) {
   S.currentView = name;
   $$('.view-tab').forEach((t) => t.classList.toggle('active', t.dataset.view === name));
-  for (const v of ['notebook', 'replica', 'assets', 'api']) {
+  for (const v of ['notebook', 'replica', 'assets', 'api', 'precision']) {
     const el = $(`#view-${v}`);
     if (el) el.classList.toggle('hidden', v !== name);
   }
@@ -1062,6 +1062,7 @@ function switchView(name) {
     S.editors.forEach((cm) => { try { cm.refresh(); } catch {} });
   }
   if (name === 'replica' || name === 'assets' || name === 'api') loadReplicaData();
+  if (name === 'precision') loadPrecisionSummary();
 }
 
 async function loadReplicaData(force = false) {
@@ -1243,6 +1244,103 @@ function renderApiTable() {
   el.innerHTML = html;
 }
 
+/* ------------------------------------------- precision comparison lab */
+
+async function loadPrecisionSummary() {
+  const box = $('#precision-summary');
+  if (!box) return;
+  try {
+    const st = await api('/replica/status');
+    const r = st.replica || {};
+    box.innerHTML = [
+      ['已移植算法', '4 个模块'], ['质量策略', (r.qualityPolicies || []).length + ' 种'],
+      ['分段配置', 'FirstMin ' + (r.segmentation?.FirstMin ?? '—') + ' / Target ' + (r.segmentation?.Target ?? '—')],
+      ['文本上限', (r.limits?.TextChars ?? '—') + ' 字符'],
+      ['worker 快照', (r.workers ?? '—') + ' 个'],
+      ['落盘文件', (r.onDiskLayout || []).length + ' 个'],
+    ].map(([k, v]) => `<div class="kpi">${esc(k)} <b>${esc(v)}</b></div>`).join('');
+  } catch (e) { box.innerHTML = `<div class="kpi warn">读取失败 <b>${esc(e.message)}</b></div>`; }
+}
+
+async function runSegProbe() {
+  const out = $('#seg-result');
+  if (!out) return;
+  out.textContent = '正在切分…';
+  try {
+    const r = await api('/replica/segment', 'POST', {
+      text: $('#seg-input').value,
+      mode: $('#seg-mode').value,
+      seed: Number($('#seg-seed').value) || 42,
+    });
+    let html = `<b>${esc(r.cfg)}</b> · ${r.count} 段 · 总 units ${r.units}<table><tr><th>#</th><th>文本</th><th>units</th><th>边界</th><th>停顿</th><th>呼吸</th></tr>`;
+    for (const s of r.segments) {
+      html += `<tr><td class="n">${s.index}</td><td>${esc(s.text)}</td><td class="n">${esc(s.units)}</td>` +
+        `<td class="tag">${esc(s.boundary)}</td><td class="n">${esc(s.pause_ms)} ms</td><td>${s.breath ? '✓' : '—'}</td></tr>`;
+    }
+    out.innerHTML = html + '</table>';
+  } catch (e) { out.textContent = '失败：' + e.message; }
+}
+
+async function runDspProbe() {
+  const out = $('#dsp-result');
+  if (!out) return;
+  out.textContent = '正在计算…';
+  try {
+    const r = await api('/replica/dsp', 'POST', { seed: 42 });
+    $('#dsp-note').textContent = `共同输入 ${r.input.samples} samples / ${r.input.seconds.toFixed(2)} s · sha256 ${r.input.sha256.slice(0, 12)}…`;
+    let html = '<table><tr><th>策略</th><th>gain</th><th>peak</th><th>rms</th><th>rtf_x</th><th>输出 sha</th></tr>';
+    for (const p of r.policies) {
+      html += `<tr><td class="tag">${esc(p.policy)}</td><td class="n">${esc(p.stats.gain_db)} dB</td>` +
+        `<td class="n">${esc(p.stats.peak_dbfs)}</td><td class="n">${esc(p.stats.rms_dbfs)}</td>` +
+        `<td class="n">${esc(p.stats.rtf_x)}</td><td>${esc(p.output.sha256.slice(0, 12))}…</td></tr>`;
+    }
+    out.innerHTML = html + '</table><span class="warn">波形为合成音；增益/限幅数学来自原 Python 源码。</span>';
+  } catch (e) { out.textContent = '失败：' + e.message; }
+}
+
+async function runFrameProbe() {
+  const out = $('#frame-result');
+  if (!out) return;
+  out.textContent = '正在捕获一次完整流…';
+  try {
+    const r = await api('/replica/frames', 'POST', {
+      text: $('#frame-text').value || '帧协议检查文本。',
+      mode: 'chat', quality_policy: $('#frame-policy').value,
+    });
+    const clientCounts = {}, workerCounts = {};
+    for (const f of r.frames) clientCounts[f.name] = (clientCounts[f.name] || 0) + 1;
+    for (const f of r.workerFrames) workerCounts[f.name] = (workerCounts[f.name] || 0) + 1;
+    const fmt = (o) => Object.entries(o).map(([k, v]) => `${k}×${v}`).join('  ');
+    out.innerHTML = `<b>client ← gateway</b>  ${esc(fmt(clientCounts))}\n` +
+      `<b>worker → gateway</b>  ${esc(fmt(workerCounts))}\n` +
+      `<b>segments</b> ${r.segments.length} · <b>policy</b> ${esc(r.run.quality_policy)} · <b>codec</b> ${esc(r.run.codec_policy)}\n` +
+      `<b>timeline_ms</b> ${esc(Object.entries(r.timeline).map(([k, v]) => k + '=' + v).join('  '))}\n` +
+      `<b>前 12 帧</b>\n` + r.frames.slice(0, 12).map((f, i) =>
+        `${String(i).padStart(2)}  ${esc(f.name).padEnd(8)} seg=${f.seg}  len=${f.length}`).join('\n') +
+      `\n<span class="warn">${esc(r.legend.client)}</span>`;
+  } catch (e) { out.textContent = '失败：' + e.message; }
+}
+
+async function refreshWorkers() {
+  const out = $('#worker-result');
+  if (!out) return;
+  out.textContent = '正在读取…';
+  try {
+    const [w, st] = await Promise.all([api('/replica/workers'), api('/replica/status')]);
+    const h = st.replica || {};
+    let html = '';
+    for (const x of w.workers) {
+      html += `<b>/worker/${x.id}</b>  ready=${x.ready}  served=${x.served}  rtf_x=${x.rtf_x}  ` +
+        `model_loaded=${x.worker.model_loaded}  profiles=[${esc(x.worker.profiles.join(','))}]\n`;
+    }
+    html += `\n<b>Guard</b>  JSON≤${h.limits?.JSONBytes}B  text≤${h.limits?.TextChars}  ` +
+      `speak/min=${h.limits?.SpeakPerMinute}  speak并发=${h.limits?.SpeakConcurrent}\n`;
+    html += `<b>落盘</b>  ` + (h.onDiskLayout || []).slice(0, 8).map((f) => esc(f.path)).join('  ') +
+      ((h.onDiskLayout || []).length > 8 ? `  …共 ${h.onDiskLayout.length} 个` : '');
+    out.innerHTML = html;
+  } catch (e) { out.textContent = '失败：' + e.message; }
+}
+
 /* ---------------------------------------------------------- event wiring */
 
 function bindEvents() {
@@ -1260,6 +1358,10 @@ function bindEvents() {
   $('#btn-replica-newtab').addEventListener('click', () => issueEntry(true));
   $('#btn-replica-reload').addEventListener('click', () => issueEntry(false));
   $('#btn-verify-assets').addEventListener('click', verifyAssets);
+  $('#btn-seg-run').addEventListener('click', runSegProbe);
+  $('#btn-dsp-run').addEventListener('click', runDspProbe);
+  $('#btn-frame-run').addEventListener('click', runFrameProbe);
+  $('#btn-worker-refresh').addEventListener('click', refreshWorkers);
   $('#asset-tree').addEventListener('click', (e) => {
     const d = e.target.closest('[data-assetdir]');
     const f = e.target.closest('[data-asset]');

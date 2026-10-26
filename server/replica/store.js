@@ -15,10 +15,13 @@ const STATE_DIR = path.join(ROOT, 'kaggle_workspace', 'replica_state');
 const LIB_DIR = path.join(STATE_DIR, 'libraries');
 const TRAIN_DIR = path.join(STATE_DIR, 'training_data');
 const PROFILE_DIR = path.join(STATE_DIR, 'profiles');
+const RUNS_DIR = path.join(STATE_DIR, 'runs');
+const ACTIVE_FILE = path.join(STATE_DIR, 'active.json');
+const URL_FILE = path.join(STATE_DIR, 'url.txt');
 const STATE_FILE = path.join(STATE_DIR, 'state.json');
 const SAMPLE_RATE = 24000;
 
-for (const d of [STATE_DIR, LIB_DIR, TRAIN_DIR, PROFILE_DIR]) fs.mkdirSync(d, { recursive: true });
+for (const d of [STATE_DIR, LIB_DIR, TRAIN_DIR, PROFILE_DIR, RUNS_DIR]) fs.mkdirSync(d, { recursive: true });
 
 const now = () => new Date().toISOString();
 const hex = (n = 16) => crypto.randomBytes(n).toString('hex');
@@ -141,14 +144,16 @@ function demoLibrary() {
 }
 
 function freshState() {
+  const profile = demoProfile();
+  const library = demoLibrary();
   const state = {
     version: 1,
     createdAt: now(),
     updatedAt: now(),
     accessToken: 'qtvs-local-replica-' + hex(24),
-    activeProfile: 'demo-voice-001',
-    profiles: [demoProfile()],
-    libraries: [demoLibrary()],
+    activeProfile: profile.id,
+    profiles: [profile],
+    libraries: [library],
     trainingDatasets: [],
     jobs: {},
     runs: [],
@@ -160,6 +165,13 @@ function freshState() {
     seq: 1,
     simulated: true,
   };
+  // Seed the original on-disk layout so it is inspectable from the first boot.
+  try {
+    writeProfileDisk(profile);
+    writeLibraryDisk(library);
+    atomicJson(ACTIVE_FILE, { id: profile.id });
+    writeUrl('http://127.0.0.1:7860');
+  } catch (e) { console.error('[replica] seed layout:', e.message); }
   return state;
 }
 
@@ -173,6 +185,22 @@ function load() {
     state = freshState();
     save();
   }
+  // Migrate pre-layout state files: the original Go/Python tools read
+  // state/active.json and state/{profiles,libraries}/<id>/{profile,library}.json.
+  // Create only what is missing; never overwrite a user's on-disk edits.
+  try {
+    if (!fs.existsSync(ACTIVE_FILE)) atomicJson(ACTIVE_FILE, { id: state.activeProfile || state.profiles[0]?.id || '' });
+    if (!fs.existsSync(URL_FILE)) writeUrl('http://127.0.0.1:7860');
+    for (const p of state.profiles || []) {
+      if (!fs.existsSync(path.join(PROFILE_DIR, p.id, 'profile.json'))) writeProfileDisk(p);
+    }
+    for (const l of state.libraries || []) {
+      if (!fs.existsSync(path.join(LIB_DIR, l.id, 'library.json'))) writeLibraryDisk(l);
+    }
+    for (const r of state.runs || []) {
+      if (r.session && !fs.existsSync(path.join(RUNS_DIR, `${r.session}.json`))) writeRunDisk(r);
+    }
+  } catch (e) { console.error('[replica] layout migration:', e.message); }
   return state;
 }
 function save() {
@@ -183,6 +211,64 @@ function save() {
 }
 function get() { return state || load(); }
 function nextSeq() { get().seq = (get().seq || 1) + 1; return get().seq; }
+
+/* --- original-style on-disk layout ----------------------------------------
+   The Go gateway reads state/profiles/<id>/profile.json and state/active.json;
+   the Python library service keeps state/libraries/<id>/library.json. We write
+   the same files so the replica's disk is inspectable with the original tools. */
+function atomicJson(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = file + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n');
+  fs.renameSync(tmp, file);
+}
+function writeActive(id) { atomicJson(ACTIVE_FILE, { id }); get().activeProfile = id; save(); }
+function readActive() {
+  try { const v = JSON.parse(fs.readFileSync(ACTIVE_FILE, 'utf8')); if (v && typeof v.id === 'string') return v.id; } catch {}
+  return get().activeProfile || null;
+}
+function writeProfileDisk(profile) {
+  const dir = path.join(PROFILE_DIR, profile.id);
+  fs.mkdirSync(dir, { recursive: true });
+  atomicJson(path.join(dir, 'profile.json'), profile);
+}
+function listProfilesFromDisk() {
+  const out = [];
+  try {
+    for (const e of fs.readdirSync(PROFILE_DIR, { withFileTypes: true })) {
+      if (!e.isDirectory() || e.name.startsWith('_cal_')) continue;
+      try {
+        const p = JSON.parse(fs.readFileSync(path.join(PROFILE_DIR, e.name, 'profile.json'), 'utf8'));
+        if (p && p.id) out.push(p);
+      } catch {}
+    }
+  } catch {}
+  return out.sort((a, b) => String(b.created || '').localeCompare(String(a.created || '')));
+}
+function writeLibraryDisk(library) {
+  atomicJson(path.join(LIB_DIR, library.id, 'library.json'), library);
+}
+function writeRunDisk(run) {
+  if (run && run.session) atomicJson(path.join(RUNS_DIR, `${run.session}.json`), run);
+}
+function writeUrl(url) { fs.writeFileSync(URL_FILE, url + '\n'); }
+function layout() {
+  const files = [];
+  const walk = (dir, prefix = '') => {
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const rel = prefix ? `${prefix}/${e.name}` : e.name;
+      if (e.isDirectory()) walk(path.join(dir, e.name), rel);
+      else {
+        const st = fs.statSync(path.join(dir, e.name));
+        files.push({ path: rel, bytes: st.size, mtime: st.mtime.toISOString() });
+      }
+    }
+  };
+  walk(STATE_DIR);
+  return files.sort((a, b) => a.path.localeCompare(b.path));
+}
 
 function publicLibrary(row) {
   if (!row) return null;
@@ -206,12 +292,15 @@ function recordRun(run) {
   s.totalRuns += 1;
   s.workers.forEach((w) => { w.served += 1; });
   save();
+  writeRunDisk(run);
 }
 
 module.exports = {
-  ROOT, STATE_DIR, LIB_DIR, TRAIN_DIR, PROFILE_DIR, STATE_FILE, SAMPLE_RATE,
+  ROOT, STATE_DIR, LIB_DIR, TRAIN_DIR, PROFILE_DIR, RUNS_DIR, ACTIVE_FILE, URL_FILE, STATE_FILE, SAMPLE_RATE,
   now, hex, digest, seedRand, wavBytes, synthPcm,
   load, save, get, nextSeq, freshState,
+  atomicJson, writeActive, readActive, writeProfileDisk, listProfilesFromDisk,
+  writeLibraryDisk, writeRunDisk, writeUrl, layout,
   publicLibrary, findLibrary, findProfile, findDataset,
   samplePath, safeId, recordRun, workerSnapshot,
 };

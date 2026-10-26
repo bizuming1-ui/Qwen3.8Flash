@@ -18,6 +18,11 @@ const auth = require('./auth');
 const protocol = require('./protocol');
 const prep = require('./prep');
 const U = require('./http-utils');
+const SEG = require('./segmenter');
+const DSP = require('./dsp');
+const LIMITS = require('./limits');
+const WORKERS = require('./workers');
+const DIAG = require('./diagnostics');
 
 const st = store.get();   // single shared state object for every replica module
 
@@ -88,6 +93,7 @@ async function handle(req, res, url) {
 
   // ---- everything else needs a valid session / bearer ----------------------
   if (!auth.authorized(req)) {
+    if (!LIMITS.failedAllowed()) return U.busy(res, 'too many failed access attempts');
     res.setHeader('WWW-Authenticate', 'Bearer realm="QTTS"');
     return U.json(res, 401, { error: 'access token required or invalid' });
   }
@@ -95,18 +101,24 @@ async function handle(req, res, url) {
   if (p === '/api/health' && method === 'GET') {
     return U.json(res, 200, {
       ok: true, workers_total: st.workers.length,
-      workers_healthy: st.workers.filter((w) => w.healthy).length,
-      workers: st.workers,
+      workers_healthy: WORKERS.snapshots().filter((w) => w.healthy).length,
+      workers: WORKERS.snapshots(),
       agg_rtf: 2.4, policy: protocol.policyFor(2.4),
       llm_key_set: st.llmKeySet, llm_model: st.llmModel,
-      active_profile: st.activeProfile, simulated: true,
+      active_profile: store.readActive() || st.activeProfile,
+      quality_policies: DSP.POLICIES,
+      segmentation: SEG.defaultSegCfg(),
+      limits: LIMITS.L,
+      admission: LIMITS.snapshot(),
+      on_disk_layout: store.layout(),
+      simulated: true,
     });
   }
   if (p === '/api/preflight' && method === 'GET') {
     try { return U.json(res, 200, JSON.parse(fs.readFileSync(PROBE_FILE, 'utf8'))); }
     catch { return U.json(res, 200, { status: 'not_run', model_loaded: false }); }
   }
-  if (p === '/api/workers' && method === 'GET') return U.json(res, 200, st.workers);
+  if (p === '/api/workers' && method === 'GET') return U.json(res, 200, WORKERS.snapshots());
   if (p === '/api/metrics' && method === 'GET') {
     return U.json(res, 200, {
       total_runs: st.totalRuns,
@@ -120,8 +132,8 @@ async function handle(req, res, url) {
     return U.json(res, 200, {
       schema: 'qtts-diagnostics-v1',
       total_runs: st.totalRuns,
-      runs: st.runs.slice(-8),
-      active: [],
+      runs: st.runs.slice(-8).map(DIAG.cleanMap),
+      active: protocol.activeSessionSnapshots().map(DIAG.cleanMap),
       quality_verified: false, training_verified: false,
       clock_origin: 'server_request_start',
       client_clock_origin: 'browser_request_start',
@@ -130,13 +142,18 @@ async function handle(req, res, url) {
     });
   }
   if (p === '/api/profiles' && method === 'GET') {
-    return U.json(res, 200, { profiles: st.profiles, active: st.activeProfile, simulated: true });
+    const disk = store.listProfilesFromDisk();
+    return U.json(res, 200, {
+      profiles: disk.length ? disk.map(prep.publicProfile) : st.profiles.map(prep.publicProfile),
+      active: store.readActive() || st.activeProfile, simulated: true,
+    });
   }
   if (p === '/api/profiles/activate' && method === 'POST') {
     const body = await U.readJson(req);
-    const profile = store.findProfile(body.id);
+    const profile = store.findProfile(body.id) || store.listProfilesFromDisk().find((x) => x.id === body.id);
     if (!profile) return U.json(res, 404, { error: 'profile not found' });
-    st.activeProfile = profile.id;
+    store.writeActive(profile.id);            // state/active.json, same as the Go gateway
+    WORKERS.loadOnBoth(profile.id);           // POST /profile/load on both workers
     st.workers.forEach((w) => { w.served += 1; });
     store.save();
     return U.json(res, 200, { active: profile.id, workers: prep.workersList(), simulated: true });
@@ -154,7 +171,7 @@ async function handle(req, res, url) {
     return U.json(res, 200, { merged, simulated: true });
   }
   if (p === '/api/speak' && method === 'POST') {
-    const body = await U.readJson(req, 64 * 1024);
+    const body = await U.readJson(req);      // limit comes from Guard.middleware
     return protocol.speak(req, res, body, helpers);
   }
   if (p.startsWith('/api/prep/') || p === '/api/prep') {
@@ -165,14 +182,45 @@ async function handle(req, res, url) {
 }
 
 async function safeHandle(req, res, url) {
+  cors(req, res);
+  let release = () => {};
   try {
+    if (req.method.toUpperCase() !== 'OPTIONS' && url.pathname !== '/api/session/exchange') {
+      release = LIMITS.admit(req, url.pathname);   // Guard.middleware
+    }
     await handle(req, res, url);
   } catch (err) {
     if (res.headersSent) { if (!res.writableEnded) res.end(); return; }
     const status = Number(err.status) || 500;
+    if (status === 429) { U.busy(res, err.message || 'request rate exceeded'); return; }
     if (status >= 500) console.error('[replica]', err);
     U.json(res, status, { error: err.message || 'internal error', simulated: true });
+  } finally {
+    release();
   }
+}
+
+/** Compare the 5 exact DSP quality policies on one common synthetic waveform. */
+function dspProbe({ text = '这是一段用于对比五种质量策略的测试文本。', seed = 42, policy = null } = {}) {
+  const raw = store.synthPcm(`dsp-probe|${text}|${seed}`, 2.0, { amplitude: 0.12 });
+  const policies = policy ? [policy] : DSP.POLICIES;
+  if (policies.some((p) => !DSP.POLICIES.includes(p))) {
+    throw Object.assign(new Error('unsupported quality policy'), { status: 400 });
+  }
+  return {
+    input: { samples: raw.length / 2, seconds: 2, sha256: store.digest(raw), simulated: true },
+    policies: policies.map((p) => {
+      const { pcm, stats } = DSP.applyPolicy(raw, p, { seed, expectedS: 2, firstChunkMs: 118 });
+      const preview = [];
+      for (let i = 0; i < 32; i++) preview.push(pcm.readInt16LE(i * 2));
+      return {
+        policy: p, stats, output: {
+          samples: pcm.length / 2, sha256: store.digest(pcm),
+          peak: Math.max(...preview.map(Math.abs)), first32: preview,
+        },
+      };
+    }),
+  };
 }
 
 function status() {
@@ -183,9 +231,21 @@ function status() {
     libraries: st.libraries.length,
     trainingDatasets: st.trainingDatasets.length,
     runs: st.totalRuns,
-    activeProfile: st.activeProfile,
+    activeProfile: store.readActive() || st.activeProfile,
+    qualityPolicies: DSP.POLICIES,
+    segmentation: SEG.defaultSegCfg(),
+    onDiskLayout: store.layout(),
+    limits: LIMITS.L,
+    workers: WORKERS.snapshots().length,
     simulated: true,
   };
 }
 
-module.exports = { safeHandle, status, issueGrant: auth.issueGrant, accessToken: auth.accessToken };
+module.exports = {
+  safeHandle, status, issueGrant: auth.issueGrant, accessToken: auth.accessToken,
+  segment: (text, opts) => SEG.segmentAll(text, opts),
+  captureStream: protocol.captureStream,
+  applyPolicy: DSP.applyPolicy,
+  dspProbe,
+  workers: WORKERS,
+};

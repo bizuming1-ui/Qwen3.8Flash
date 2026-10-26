@@ -116,16 +116,16 @@ bytes 9..     : PCM = int16 LE 24000 Hz mono；其它 = UTF-8 JSON
 
 ```bash
 npm run extract          # 从 kaggle.ipynb 重新解包 + 校验 70 个资产
-npm run check            # 19 个服务端/脚本 JS 文件语法检查
-npm test                 # 62 项自动化验证（需 npm start 正在运行）
-  # ├─ scripts/test-replica.js : 44 项 HTTP 契约测试
+npm run check            # 24 个服务端/脚本 JS 文件语法检查
+npm test                 # 86 项自动化验证（需 npm start 正在运行）
+  # ├─ scripts/test-replica.js : 63 项 HTTP 契约测试
   # │    · /site/ 四个文件字节一致、70/70 SHA-256
   # │    · 私有入口 grant → Cookie → 会话 → 登出
   # │    · 14 个 Go gateway 端点 + 24 个 Python analyst 端点
   # │    · /api/speak 二进制帧（1/2/3/4/5/7 全类型 + int16 24kHz PCM）
   # │    · multipart 上传 → 档案任务 → 声音库 → 训练输入快照 → 哈希校验
-  # └─ scripts/test-browser.js : 18 项 jsdom 浏览器级测试
-  #      · 实验室 4 个视图 / 源码资产 / API 矩阵 / 私有入口
+  # └─ scripts/test-browser.js : 23 项 jsdom 浏览器级测试
+  #      · 实验室 5 个视图 / 源码资产 / API 矩阵 / 精准对照 / 私有入口
   #      · 原始未修改的 web/app.js 自动解锁、流式语音、诊断、声音库弹窗
 curl -s -X POST localhost:3000/lab/api/replica/verify   # 在线重算 SHA-256
 curl -s localhost:3000/lab/api/replica/status | jq .    # 网站文件哈希 / 会话 / 端点数
@@ -133,7 +133,11 @@ curl -s localhost:3000/lab/api/replica/status | jq .    # 网站文件哈希 / �
 
 浏览器里：「🧬 源码资产」页可逐个查看 Go/Python/Rust/JS 源码；
 「🔌 API 兼容矩阵」页列出 38 个端点及其原始来源文件；
-「🌐 网站复刻」页一键生成私有入口并在 iframe 中打开原站。
+「🌐 网站复刻」页一键生成私有入口并在 iframe 中打开原站；
+「🔬 精准对照」页可在线运行分段器 / DSP / 双层帧 / worker 四组探针。
+
+> **继续精准开发**：Go 分段器、Python 五种音量策略、Guard 限流、诊断脱敏、
+> worker HTTP 面与原始 `state/` 磁盘布局已逐算法移植，详见 [docs/PRECISION.md](PRECISION.md)。
 
 ## 8. 仍然只能在 Kaggle 上做的事
 

@@ -105,7 +105,7 @@ async function labTest() {
   await wait(2400);
   const d = w.document;
   check('[lab] bootstraps notebooks', d.querySelectorAll('.cell').length > 0, d.querySelector('#nb-title').textContent);
-  check('[lab] 4 views present', d.querySelectorAll('.view-tab').length === 4);
+  check('[lab] 5 views present', d.querySelectorAll('.view-tab').length === 5);
   d.querySelector('[data-view="replica"]').click(); await wait(500);
   check('[lab] replica view renders status', /SHA-256/.test(d.querySelector('#replica-status').textContent));
   d.querySelector('#btn-replica-entry').click(); await wait(600);
@@ -117,6 +117,16 @@ async function labTest() {
   check('[lab] asset viewer shows source', d.querySelector('#asset-content').textContent.length > 100);
   d.querySelector('[data-view="api"]').click(); await wait(400);
   check('[lab] API matrix has 38 rows', d.querySelectorAll('.api-row').length === 38);
+  d.querySelector('[data-view="precision"]').click(); await wait(900);
+  check('[lab] precision view shows ported algorithms', /质量策略/.test(d.querySelector('#precision-summary').textContent));
+  d.querySelector('#btn-seg-run').click(); await wait(900);
+  check('[lab] segmenter probe renders boundary table', d.querySelectorAll('#seg-result table tr').length > 1);
+  d.querySelector('#btn-dsp-run').click(); await wait(900);
+  check('[lab] DSP probe renders 5 policy rows', d.querySelectorAll('#dsp-result table tr').length === 6);
+  d.querySelector('#btn-frame-run').click(); await wait(1400);
+  check('[lab] frame inspector shows both wire layers', /worker → gateway/.test(d.querySelector('#frame-result').textContent));
+  d.querySelector('#btn-worker-refresh').click(); await wait(900);
+  check('[lab] worker + Guard snapshot renders', /\/worker\/0/.test(d.querySelector('#worker-result').textContent));
   check('[lab] no JS errors', errors.length === 0, errors.slice(0, 2).join(' | '));
   return errors;
 }
@@ -154,11 +164,13 @@ async function siteTest() {
   check('[site] original app.js auto-unlocks', d.body.classList.contains('is-unlocked'), d.querySelector('#access-status').textContent);
   check('[site] gateway connected', /已连接/.test(d.querySelector('#conn').textContent));
   check('[site] profiles loaded', d.querySelectorAll('#profile option').length > 0);
-  d.querySelector('#mode').value = 'read';
+  // Chat mode is the only mode in which the Go gateway pushes TEXT frames; in
+  // read mode #llmout is intentionally empty (text only feeds the segmenter).
+  d.querySelector('#mode').value = 'chat';
   d.querySelector('#text').value = '浏览器级二进制帧测试。第二句。';
   d.querySelector('#btn-speak').click();
-  await wait(5500);
-  check('[site] streamed text rendered', d.querySelector('#llmout').textContent.includes('浏览器级'));
+  await wait(6500);
+  check('[site] streamed TEXT frames rendered in #llmout', d.querySelector('#llmout').textContent.includes('浏览器级'));
   check('[site] no stream error', d.querySelector('#errbox').textContent.trim() === '');
   check('[site] segment table populated', d.querySelectorAll('#segbody tr').length > 0);
   check('[site] timeline rendered', d.querySelectorAll('#timeline .kv').length > 3);

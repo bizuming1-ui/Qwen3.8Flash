@@ -433,7 +433,38 @@ code { background: #1e2b45; padding: 1px 5px; border-radius: 4px; color: #b9d9f7
 .api-row .y { color: var(--green); text-align: center; }
 #research-box .kv { margin-bottom: 3px; }
 
+/* ---- view 5: precision comparison lab ---- */
+.precision-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.precision-card {
+  border: 1px solid var(--line); border-radius: 9px; background: var(--panel);
+  padding: 12px 13px; min-width: 0;
+}
+.precision-card h3 { margin: 0 0 6px; font-size: 13px; color: var(--cyan); }
+.precision-card .tiny-note { margin: 0 0 9px; line-height: 1.7; }
+.precision-input, .precision-text, .precision-select, .precision-num {
+  width: 100%; box-sizing: border-box; background: #0d1117; color: var(--txt);
+  border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px;
+  font: 11.5px var(--mono); outline: none;
+}
+.precision-input { resize: vertical; min-height: 62px; line-height: 1.6; }
+.precision-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.precision-controls .precision-text { flex: 2 1 180px; }
+.precision-controls .precision-select { flex: 1 1 130px; }
+.precision-controls .precision-num { flex: 0 0 90px; }
+.precision-out {
+  background: #0d1117; border: 1px solid var(--line); border-radius: 7px;
+  padding: 9px 10px; max-height: 290px; overflow: auto;
+  font: 10.8px/1.65 var(--mono); color: var(--txt-2); white-space: pre-wrap; word-break: break-all;
+}
+.precision-out table { width: 100%; border-collapse: collapse; font: 10.5px var(--mono); }
+.precision-out th, .precision-out td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; }
+.precision-out th { color: var(--amber); font-weight: 600; }
+.precision-out td.n { color: #a9d8f5; }
+.precision-out .tag { color: var(--green); }
+.precision-out .warn { color: var(--amber); }
+
 @media (max-width: 1100px) {
+  .precision-grid { grid-template-columns: 1fr; }
   .asset-split { grid-template-columns: 1fr; }
   .api-row { grid-template-columns: 56px 1fr 1.2fr; }
   .api-row .o, .api-row .y { display: none; }
