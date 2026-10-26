@@ -167,7 +167,7 @@ class GitSyncRequest(BaseModel):
 
 
 # ---- Routes ----
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def serve_index() -> HTMLResponse:
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     return HTMLResponse(content=html)
