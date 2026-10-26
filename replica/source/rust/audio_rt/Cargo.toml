@@ -1,0 +1,17 @@
+[package]
+name = "audio_rt"
+version = "1.0.0"
+edition = "2021"
+description = "QTTS real-time audio runtime: leveler, DC blocker, soft limiter, breath synth, click-free tails"
+
+[lib]
+name = "audio_rt"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

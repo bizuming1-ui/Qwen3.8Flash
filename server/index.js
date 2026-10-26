@@ -13,6 +13,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 
 const W = require('./lib/workspace');
@@ -20,11 +21,16 @@ const NB = require('./lib/notebook');
 const GIT = require('./lib/git');
 const SIM = require('./lib/simulator');
 const DS = require('./lib/datasets');
+const REPLICA = require('./replica');
 const { VOICE_CLONE_CELLS, DATASET_CATALOG, KAGGLE_ENV } = require('./lib/templates');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const PUBLIC = path.join(__dirname, 'public');
+const REPLICA_ROOT = path.join(__dirname, '..', 'replica');
+const REPLICA_WEB = path.join(REPLICA_ROOT, 'web');
+const REPLICA_SOURCE = path.join(REPLICA_ROOT, 'source');
+const REPLICA_SITE_FILES = ['index.html', 'app.js', 'recorder.js', 'diagnostic-trace.js'];
 const STARTED_AT = W.nowIso();
 const MAX_BODY = 12 * 1024 * 1024; // 12 MB — enough for a very large notebook paste
 
@@ -119,6 +125,101 @@ function realEnvironment() {
   };
 }
 
+/* ------------------------------------------------- replica study helpers */
+
+function readAssetManifest() {
+  try { return JSON.parse(fs.readFileSync(path.join(REPLICA_ROOT, 'asset-manifest.json'), 'utf8')); }
+  catch { return { source: null, assets: [], web: [], verified: 0, total_bytes: 0 }; }
+}
+
+function replicaAssetTree(dir = REPLICA_SOURCE, prefix = '') {
+  const out = [];
+  let entries = [];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  entries.sort((a, b) => (a.isDirectory() !== b.isDirectory()) ? (a.isDirectory() ? -1 : 1) : a.name.localeCompare(b.name));
+  for (const e of entries) {
+    const rel = prefix ? `${prefix}/${e.name}` : e.name;
+    if (e.isDirectory()) out.push({ name: e.name, path: rel, type: 'dir', children: replicaAssetTree(path.join(dir, e.name), rel) });
+    else out.push({ name: e.name, path: rel, type: 'file', size: fs.statSync(path.join(dir, e.name)).size });
+  }
+  return out;
+}
+
+function verifyReplicaAssets() {
+  const manifest = readAssetManifest();
+  const checked = [];
+  for (const a of manifest.assets || []) {
+    const file = path.join(REPLICA_SOURCE, a.path);
+    let status = 'missing';
+    if (fs.existsSync(file)) {
+      const buf = fs.readFileSync(file);
+      status = (buf.length === a.bytes && crypto.createHash('sha256').update(buf).digest('hex') === a.sha256)
+        ? 'verified' : 'mismatch';
+    }
+    checked.push({ path: a.path, status });
+  }
+  const web = REPLICA_SITE_FILES.map((name) => {
+    const file = path.join(REPLICA_WEB, name);
+    const expected = (manifest.web || []).find((w) => w.file === name);
+    if (!expected || !fs.existsSync(file)) return { file: name, status: 'missing' };
+    const buf = fs.readFileSync(file);
+    return { file: name, status: crypto.createHash('sha256').update(buf).digest('hex') === expected.sha256 ? 'verified' : 'mismatch' };
+  });
+  return {
+    checkedAt: W.nowIso(),
+    assetsVerified: checked.filter((c) => c.status === 'verified').length,
+    assetsTotal: checked.length,
+    webIdentical: web.filter((w) => w.status === 'verified').length,
+    webTotal: web.length,
+    mismatches: [...checked, ...web].filter((x) => x.status !== 'verified'),
+    web,
+  };
+}
+
+function replicaEndpointMap() {
+  const G = (m, route, desc, origin) => ({ method: m, route, description: desc, origin, implemented: true });
+  return [
+    G('POST', '/api/session/issue', '生成一次性私有入口（Bearer）', 'Go guard'),
+    G('POST', '/api/session/exchange', '一次性入口换 HttpOnly 会话', 'Go guard'),
+    G('GET', '/api/session/status', '会话状态', 'Go guard'),
+    G('POST', '/api/session/logout', '退出并停止', 'Go guard'),
+    G('GET', '/api/health', '网关健康 + 双 worker 快照', 'Go gateway'),
+    G('GET', '/api/preflight', '后端兼容探针', 'Go gateway'),
+    G('GET', '/api/workers', 'worker 快照', 'Go gateway'),
+    G('GET', '/api/metrics', '运行指标 + 阶段中位数', 'Go gateway'),
+    G('GET', '/api/diagnostics', '脱敏诊断快照', 'Go gateway'),
+    G('GET', '/api/profiles', '声音档案列表 + active', 'Go gateway'),
+    G('POST', '/api/profiles/activate', '启用声音档案（双卡预热）', 'Go gateway'),
+    G('POST', '/api/speak', '二进制帧流式语音合成', 'Go gateway'),
+    G('POST', '/api/telemetry', '播放水位遥测', 'Go gateway'),
+    G('POST', '/api/report', '浏览器诊断回执合并', 'Go gateway'),
+    G('GET', '/api/prep/health', 'analyst 健康', 'Python analyst'),
+    G('GET', '/api/prep/profiles', '档案列表', 'Python analyst'),
+    G('POST', '/api/prep/profiles', '上传参考音频建档案（multipart）', 'Python analyst'),
+    G('GET', '/api/prep/jobs/{id}', '任务进度', 'Python analyst'),
+    G('GET', '/api/prep/profiles/{id}', '档案详情', 'Python analyst'),
+    G('POST', '/api/prep/profiles/{id}/text', '保存参考文本并重载', 'Python analyst'),
+    G('POST', '/api/prep/profiles/{id}/candidate', '切换锚点候选', 'Python analyst'),
+    G('POST', '/api/prep/profiles/{id}/calibrate', '候选校准', 'Python analyst'),
+    G('DELETE', '/api/prep/profiles/{id}', '删除档案', 'Python analyst'),
+    G('POST', '/api/prep/consistency', '双卡一致性报告', 'Python analyst'),
+    G('POST', '/api/prep/evaluate', '音频评估', 'Python analyst'),
+    G('GET', '/api/prep/libraries', '声音库列表', 'library_api.py'),
+    G('POST', '/api/prep/libraries', '创建命名空库', 'library_api.py'),
+    G('GET', '/api/prep/libraries/{id}', '声音库详情', 'library_api.py'),
+    G('DELETE', '/api/prep/libraries/{id}', '删除声音库', 'library_api.py'),
+    G('POST', '/api/prep/libraries/{id}/samples', '上传原始样本（multipart）', 'library_api.py'),
+    G('DELETE', '/api/prep/libraries/{id}/samples/{sid}', '移除样本', 'library_api.py'),
+    G('POST', '/api/prep/libraries/{id}/process', '处理勾选参考（非训练）', 'library_api.py'),
+    G('GET', '/api/prep/training-data', '训练输入快照列表', 'library_api.py'),
+    G('POST', '/api/prep/training-data', '生成训练输入快照（非训练）', 'library_api.py'),
+    G('POST', '/api/prep/training-data/{id}/verify', '按哈希校验快照', 'library_api.py'),
+    G('DELETE', '/api/prep/training-data/{id}', '删除训练输入快照', 'library_api.py'),
+    G('GET', '/api/prep/diagnostics/snapshot', '本地脱敏诊断快照', 'diagnostic_pair.py'),
+    G('POST', '/api/prep/diagnostics/pair', '双卡同文短测', 'diagnostic_pair.py'),
+  ];
+}
+
 function bootstrap() {
   const notebooks = NB.listNotebooks();
   const settings = getSettings();
@@ -148,6 +249,13 @@ function bootstrap() {
     recentCommits: GIT.log(8),
     recentWrites: recentWrites.slice(0, 30),
     localPythonEnabled: process.env.ENABLE_LOCAL_PYTHON === '1',
+    replica: {
+      siteUrl: '/site/',
+      endpoints: replicaEndpointMap().length,
+      verification: verifyReplicaAssets(),
+      state: REPLICA.status(),
+      simulated: true,
+    },
   };
 }
 
@@ -478,6 +586,67 @@ async function api(req, res, u) {
     return ok(res, { result: r, git: GIT.status(), commits: GIT.log(10), diff: GIT.diffStat() });
   }
 
+  // ---- QTTS website replica (studied from the pasted Kaggle notebook) ------
+  if (p === '/api/replica/status' && method === 'GET') {
+    const manifest = readAssetManifest();
+    const web = REPLICA_SITE_FILES.map((name) => {
+      const file = path.join(REPLICA_WEB, name);
+      const buf = fs.existsSync(file) ? fs.readFileSync(file) : Buffer.alloc(0);
+      return {
+        file: name, bytes: buf.length,
+        sha256: crypto.createHash('sha256').update(buf).digest('hex'),
+        expected: (manifest.web || []).find((w) => w.file === name)?.sha256 || null,
+      };
+    }).map((w) => ({ ...w, identical: w.sha256 === w.expected }));
+    return ok(res, {
+      replica: REPLICA.status(),
+      manifest: {
+        source: manifest.source, verified: manifest.verified || 0,
+        totalBytes: manifest.total_bytes || 0,
+        assets: (manifest.assets || []).length,
+      },
+      web,
+      endpoints: replicaEndpointMap().length,
+      simulated: true,
+    });
+  }
+  if (p === '/api/replica/entry' && method === 'POST') {
+    const issued = REPLICA.issueGrant();
+    const url = `/site/#qtts-entry=${issued.grant}`;
+    noteWrite({ path: 'replica_state/private-entry', action: 'issue', simulated: true });
+    return ok(res, {
+      grant: issued.grant,
+      expiresIn: issued.expires_in,
+      url,
+      bearer: REPLICA.accessToken(),
+      note: '一次性私有入口：10 分钟内有效、仅能使用一次；打开后服务端会下发 HttpOnly 会话 Cookie。',
+    }, 201);
+  }
+  if (p === '/api/replica/assets' && method === 'GET') {
+    const manifest = readAssetManifest();
+    return ok(res, {
+      manifest,
+      tree: replicaAssetTree(),
+      sourceDir: 'replica/source/',
+      webDir: 'replica/web/',
+    });
+  }
+  if (p === '/api/replica/asset' && method === 'GET') {
+    const rel = q.get('path');
+    if (!rel) return sendError(res, 400, '缺少 path 参数');
+    const abs = path.resolve(REPLICA_SOURCE, rel);
+    if (!abs.startsWith(REPLICA_SOURCE + path.sep)) return sendError(res, 400, 'path escapes replica/source');
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return sendError(res, 404, 'not found');
+    if (fs.statSync(abs).size > 300000) return sendError(res, 400, 'file too large to preview');
+    return ok(res, { path: rel, content: fs.readFileSync(abs, 'utf8'), size: fs.statSync(abs).size });
+  }
+  if (p === '/api/replica/verify' && method === 'POST') {
+    return ok(res, { verification: verifyReplicaAssets() });
+  }
+  if (p === '/api/replica/api-map' && method === 'GET') {
+    return ok(res, { endpoints: replicaEndpointMap(), total: replicaEndpointMap().length });
+  }
+
   // ---- maintenance ---------------------------------------------------------
   if (p === '/api/seed' && method === 'POST') {
     const nb = NB.createNotebook({
@@ -520,12 +689,51 @@ function serveStatic(req, res, u) {
   res.end(data);
 }
 
+/** Serve the 4 byte-identical website assets under /site/. */
+function serveReplicaStatic(req, res, u) {
+  if (u.pathname === '/site') {
+    res.writeHead(302, { Location: '/site/', 'Cache-Control': 'no-store' });
+    return res.end();
+  }
+  let name;
+  try { name = decodeURIComponent(u.pathname.replace(/^\/site\/?/, '')); } catch { name = ''; }
+  if (!name) name = 'index.html';
+  if (!REPLICA_SITE_FILES.includes(name)) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('404 — ' + name);
+  }
+  const file = path.join(REPLICA_WEB, name);
+  if (!fs.existsSync(file)) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('404 — missing replica asset');
+  }
+  const ext = path.extname(file).toLowerCase();
+  const data = fs.readFileSync(file);
+  res.writeHead(200, {
+    'Content-Type': MIME[ext] || 'application/octet-stream',
+    'Content-Length': data.length,
+    'Cache-Control': 'no-cache',
+    'Referrer-Policy': 'no-referrer',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  res.end(data);
+}
+
 /* ------------------------------------------------------------------- server */
 
 const server = http.createServer(async (req, res) => {
   try {
     const u = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    if (u.pathname.startsWith('/api/')) return await api(req, res, u);
+    // 1) The byte-identical QTTS website + its complete API contract.
+    if (u.pathname === '/site' || u.pathname.startsWith('/site/')) return serveReplicaStatic(req, res, u);
+    if (u.pathname.startsWith('/api/')) return await REPLICA.safeHandle(req, res, u);
+    // 2) The Kaggle Voice Lab keeps its own API, now namespaced under /lab/api/.
+    if (u.pathname.startsWith('/lab/api/')) {
+      const labUrl = new URL(u.toString());
+      labUrl.pathname = '/api/' + u.pathname.slice('/lab/api/'.length);
+      return await api(req, res, labUrl);
+    }
+    // 3) The lab UI itself (root, /app.js, /styles.css, /vendor/*).
     return serveStatic(req, res, u);
   } catch (err) {
     console.error('[http]', err);
@@ -546,7 +754,9 @@ server.listen(PORT, HOST, () => {
   console.log('  ╔═══════════════════════════════════════════════════════════╗');
   console.log('  ║   Kaggle Voice Lab — local notebook & experiment simulator  ║');
   console.log('  ╚═══════════════════════════════════════════════════════════╝');
-  console.log(`  ➜  http://localhost:${PORT}`);
+  console.log(`  ➜  http://localhost:${PORT}            (Kaggle Voice Lab)`);
+  console.log(`  ➜  http://localhost:${PORT}/site/      (QTTS 网站复刻 · 原始字节)`);
+  console.log(`  ➜  API         : /lab/api/* (lab) | /api/* (QTTS replica)`);
   console.log(`  ➜  repo        : ${W.ROOT}`);
   console.log(`  ➜  workspace   : ${W.WS}`);
   console.log(`  ➜  branch      : ${GIT.status().branch}`);

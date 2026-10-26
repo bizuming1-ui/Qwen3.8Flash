@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QTTS · 双 T4 声音台</title>
+<style>
+:root{color-scheme:dark;--bg:#0d1117;--panel:#161b22;--line:#303946;--fg:#e6edf3;--mute:#9ba7b6;--acc:#58a6ff;--ok:#3fb950;--bad:#ff7b72;--warn:#e3b341}
+*{box-sizing:border-box} [hidden]{display:none!important}
+body{margin:0;height:100vh;height:100dvh;display:grid;grid-template-rows:auto auto minmax(0,1fr);overflow:hidden;background:var(--bg);color:var(--fg);font:14px/1.45 "Noto Sans SC",system-ui,"PingFang SC","Microsoft YaHei",sans-serif}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+h1{font-size:16px;margin:0}h2{font-size:16px;margin:0}.panel-title{display:flex;align-items:center;justify-content:space-between;gap:8px}.panel-title button{min-height:24px;padding:2px 8px;font-size:12px}h3{font-size:14px;margin:0 0 6px}
+nav,.right,.row{display:flex;gap:8px;align-items:center}.right{margin-left:auto;min-width:0}.row{flex-wrap:wrap}.row>*{min-width:0}
+nav button[aria-pressed="true"]{border-color:var(--acc);background:#142c47;color:#a5d6ff}
+button{background:#21262d;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:8px 12px;cursor:pointer;font:inherit;min-height:36px;white-space:normal;overflow-wrap:anywhere}
+button:hover:not(:disabled){border-color:var(--acc)}button:disabled{opacity:.5;cursor:default}button.primary{background:#1f6feb;border-color:#388bfd;color:white}button.sm{padding:5px 9px;font-size:12px;min-height:30px}
+:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+.pill{padding:3px 8px;border:1px solid var(--line);border-radius:99px;color:var(--mute);font-size:12px;white-space:nowrap}.pill.ok{color:var(--ok)}.pill.bad{color:var(--bad)}#conn{max-width:220px;overflow:hidden;text-overflow:ellipsis}
+#access-panel{padding:8px 16px;border-bottom:1px solid var(--line);background:#101720}#access-panel .access-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap}#access-title{font-size:12px}#access-status{margin:0;flex:1;font-size:12px;overflow-wrap:anywhere}#access-help{margin:8px 0;color:var(--mute);font-size:12px}#access-form{margin:8px 0;display:flex;align-items:center;gap:8px}#access-form label{margin:0;white-space:nowrap}#access-token{max-width:420px;min-width:0;flex:1}.is-unlocked #access-form,.is-unlocked #access-help,.is-unlocked #manual-access{display:none}
+main{min-width:0;min-height:0;padding:8px 12px 12px}#protected-controls{border:0;padding:0;margin:0;min-width:0;height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px}.release-note{margin:0;color:var(--warn);font-size:11px}.main-view{display:grid;grid-template-columns:minmax(300px,.95fr) minmax(0,1.4fr);gap:12px;min-height:0;min-width:0}
+.panel,.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0;overflow-wrap:anywhere}.panel{min-height:0}.card{margin:0 0 10px}.card.active{border-color:var(--ok)}.card small{color:var(--mute);font-weight:400}.stack{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}.scroll{overflow:auto;min-height:0;min-width:0;overscroll-behavior:contain;scrollbar-gutter:stable}.fill{flex:1}.controls{display:flex;flex-direction:column;gap:8px;min-height:0}.controls .scroll{flex:1}.actions{flex:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px}.actions button{flex:1}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+label{display:block;color:var(--mute);font-size:12px;margin:6px 0 4px}textarea,input,select{width:100%;min-width:0;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font:inherit}textarea{resize:vertical}input[type=checkbox]{width:auto}.muted{color:var(--mute);font-size:12px}.hint{margin:6px 0;font-size:11px;color:var(--mute)}details{margin-top:8px}summary{cursor:pointer;color:var(--mute);font-size:12px;padding:4px 0}
+#text{flex:1;min-height:60px;resize:none}#errbox{color:var(--bad);max-height:60px;overflow:auto;white-space:pre-wrap}#llmout{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.65;font-family:inherit;min-height:0;flex:1;background:#0b0f14;border:1px solid var(--line);border-radius:7px;padding:10px}.output-panel{display:flex;flex-direction:column;gap:8px}.meter{position:relative;height:12px;background:#0b0f14;border:1px solid var(--line);border-radius:4px;overflow:hidden}#bufbar{height:100%;width:0;background:linear-gradient(90deg,#1f6feb,#3fb950)}.wm{position:absolute;top:0;bottom:0;width:2px;background:var(--warn)}.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.stats>div{background:#0b0f14;border:1px solid var(--line);border-radius:5px;padding:6px}.stats span{display:block;color:var(--mute);font-size:10px}.stats b{font-size:13px}#m-pol{font-size:11px}
+#rec-wave{display:block;width:100%;height:78px;background:#0b0f14;border:1px solid var(--line);border-radius:6px}#rec-status{margin:0;min-height:18px}#rec-meter{font-variant-numeric:tabular-nums;font-size:11px}#rec-clips{max-height:92px;overflow:auto;flex:none}#rec-clips .row{justify-content:space-between;margin:3px 0}#rec-clips span{flex:1;font-size:12px;overflow-wrap:anywhere}.bar{height:6px;background:#0b0f14;border:1px solid var(--line);border-radius:4px;overflow:hidden}#jobbar{height:100%;width:0;background:var(--acc)}#jobinfo{max-height:70px;overflow:auto;margin:0}.cands{margin-top:8px;display:flex;flex-direction:column;gap:4px}.cand{text-align:left;font-size:12px}.cand.on{border-color:var(--ok);color:var(--ok)}
+pre.out,#timeline,#mon-stage,#jobinfo{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,monospace}pre.out{background:#0b0f14;border:1px solid var(--line);border-radius:6px;padding:8px;margin:8px 0;min-height:0}pre.out:empty{display:none}.kv{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line);padding:3px 0}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid var(--line);padding:6px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{color:var(--mute)}td.txt{max-width:420px}
+dialog{width:min(1040px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:12px;overflow:hidden}dialog[open]{display:flex;flex-direction:column}dialog::backdrop{background:#000a}.dialog-header{display:flex;align-items:center;gap:8px;padding:10px 12px;flex:none;border-bottom:1px solid var(--line)}.dialog-header h2{flex:1}.dialog-content{padding:12px}.dialog-content .panel{margin-bottom:10px}.table-scroll{overflow:auto}.table-scroll table{min-width:650px}#locked-note{max-width:650px;margin:20px auto}
+@media(max-width:760px){header{padding:8px 12px;gap:8px}header h1{font-size:14px}nav{order:3;width:100%;display:grid;grid-template-columns:1fr 1fr}nav button{padding:6px 8px}#conn{display:none}main{padding:6px 8px 8px}#access-panel{padding:5px 10px}#access-title{display:none}.main-view{grid-template-columns:1fr;grid-template-rows:minmax(0,1.3fr) minmax(0,1fr);gap:8px}#tab-lab{grid-template-rows:minmax(250px,.9fr) minmax(0,1fr)}.panel{padding:9px}.stack{gap:4px}.stats{gap:3px}.stats>div{padding:3px}.stats b{font-size:11px}.stats span{font-size:9px}.release-note{font-size:10px}.grid{gap:6px}label{margin-top:3px}button{font-size:13px}input,select,textarea{font-size:16px}#text{min-height:44px}#tab-speak .controls .scroll{min-height:68px}.controls{gap:6px}#rec-wave{height:40px}.dialog-header{flex-wrap:wrap}.dialog-header h2{font-size:14px}#rec-clips{max-height:55px}.actions{padding-top:6px}.output-panel{gap:5px}}
+#library-select{max-width:100%}#library-message{white-space:pre-wrap}.library-sample-row{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:6px 0}.library-sample-row label{display:flex;align-items:center;gap:8px;flex:1;min-width:0;margin:0}.library-sample-row span{min-width:0;overflow-wrap:anywhere}.library-sample-row input{flex:none}#btn-library-create{margin-top:8px}
+/* Short windows / zoom: permit page scrolling rather than clipping essential controls. */
+@media(max-height:640px){body{height:auto;min-height:100dvh;overflow:auto;display:block}main{min-height:600px}#protected-controls{min-height:600px;height:600px}.main-view{min-height:0}dialog{max-height:calc(100dvh - 12px)}}
+/* Quality candidate: trace is a real grid row, controls remain independently scrollable. */
+#protected-controls{grid-template-rows:auto minmax(90px,160px) minmax(280px,1fr);overflow:auto;align-content:start}
+#trace-panel{overflow:auto;min-height:0}#protected-controls>.main-view{grid-row:3}
+#tab-speak #text{min-height:86px;resize:vertical}
+@media(max-width:760px){#protected-controls{grid-template-rows:auto minmax(90px,130px) minmax(480px,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>QTTS 声音台</h1>
+  <nav aria-label="主要视图">
+    <button id="nav-lab" type="button" aria-controls="tab-lab" aria-pressed="false" disabled>录制参考语音</button>
+    <button id="nav-speak" type="button" aria-controls="tab-speak" aria-pressed="true" disabled>语音对话</button>
+  </nav>
+  <div class="right"><span id="pstate" class="pill">空闲</span><span id="conn" class="pill">已锁定</span><button id="nav-mon" type="button" class="sm" aria-haspopup="dialog" aria-controls="diagnostics" title="打开将停止麦克风采集，保留有效片段" disabled>诊断</button></div>
+</header>
+<section id="access-panel" aria-labelledby="access-title">
+  <div class="access-heading"><b id="access-title">单用户私有控制台</b><p id="access-status" role="status">等待 Notebook 私有入口</p><button id="btn-lock" type="button" class="sm">退出并停止</button></div>
+  <p class="hint">从 Notebook 中打开自动生成的私有入口，无需填写口令。私有入口10分钟内有效且只能使用一次；同浏览器会话最长8小时。入口仅供本人使用，不要分享或保存公开输出。</p><p id="access-help" hidden>通过可信HTTPS访问。输入Kaggle Secret QTTS_ACCESS_TOKEN，或在可信Notebook中私下读取私有认证目录的.access-token（路径见启动日志）。口令仅在本页内存中，不存网址或浏览器存储，请勿分享。</p>
+  <details id="manual-access"><summary>高级：手动口令入口（通常无需使用）</summary><form id="access-form"><label for="access-token">访问口令</label><input id="access-token" type="password" autocomplete="off" spellcheck="false" maxlength="256" required><button id="btn-unlock" class="primary" type="submit">解锁</button></form></details>
+</section>
+<main>
+  <section id="locked-note" class="panel"><h2>从 Notebook 专用入口自动进入声音台</h2><p class="muted">两个主视图：录制参考语音、语音对话。录音与参考缓存不等于模型训练；双T4、模型、首声与音质仍需实机验证。</p></section>
+  <fieldset id="protected-controls" disabled hidden>
+    <p class="release-note">第十七阶段 · 长录音按词级时间或实际窗口重新识别，16/24秒参考锚点可选；ICL匹配转写、双卡参考及生成参数绑定，仅生成码解码。真实音色、零沙沙、自然衔接及RTF≤0.3尚须试听实测，网页训练尚未闭环。</p>
+    <section class="panel" id="trace-panel" aria-labelledby="trace-title">
+      <h2 id="trace-title">全链路监听与脱敏诊断</h2>
+      <p class="hint">仅记录指标，不导出音频、原文、文件名或密钥。沙沙/响度指标是线索，不是音色与真人一致的证明。首采样消费不代表物理扬声器已发声。</p>
+      <div class="row"><button id="btn-diagnostic-export" type="button">下载脱敏诊断 JSON</button><button id="btn-diagnostic-pair" type="button">双卡同文短测（额外推理，不训练）</button></div>
+      <p id="diagnostic-action-status" class="hint" role="status">短测只使用你当前填写的文本（1–200字）和当前档案；不自动运行、不自动播放测试音频。建议两卡空闲时执行。</p>
+      <pre id="diagnostic-live" style="max-height:260px;overflow:auto;white-space:pre-wrap" aria-live="off">尚未开始。本地参考处理/训练回执同时显示在 Kaggle 输出框。</pre>
+    </section>
+    <section id="tab-speak" class="main-view" aria-labelledby="speak-title">
+      <div class="panel controls">
+        <h2 id="speak-title">语音对话</h2>
+        <div class="scroll" tabindex="0" role="region" aria-label="对话配置">
+          <div class="grid">
+            <div><label for="mode">模式（聊天朗读模型回复；直接朗读才读输入原文）</label><select id="mode"><option value="chat">DeepSeek → 克隆语音</option><option value="read">直接朗读文字</option></select></div>
+            <div><label for="profile">声音档案</label><select id="profile"></select></div>
+            <div><label for="lang">语言</label><select id="lang"><option value="auto">自动</option><option>Chinese</option><option>English</option><option>Japanese</option><option>Korean</option></select></div>
+            <div><label for="dskey">DeepSeek Key（可用环境变量）</label><input id="dskey" type="password" placeholder="sk-..." autocomplete="off"></div>
+          </div>
+        <label for="quality-policy">音频路径 · 对照候选，尚未证实真人音质改善</label>
+        <select id="quality-policy"><option value="sentence-linear">整句对照：一次声码器解码＋固定线性增益（等待整句，可能更晚出音）</option><option value="legacy-stream">原低延迟：滚动声码器＋原AGC/软限幅</option><option value="sentence-agc">仅声码器对照：整句＋原AGC（等待整句）</option><option value="sentence-agc-headroom">B路径整句AGC＋软峰值保护：上限约−1.31 dBFS（新实验，等待整句）</option><option value="windowed-linear">仅音量对照：原滚窗＋固定线性增益（仍等待整句）</option></select>
+        <label><input id="quality-capture" type="checkbox"> 仅本页保存本次合成PCM以便下载WAV（最多30秒，默认关闭，不上传）</label><button id="btn-quality-wav" type="button" disabled>下载本次合成WAV</button><p id="quality-capture-status" class="hint">未保存合成音频；需先主动勾选。WAV含声音内容，需你明确选择是否分享；脱敏JSON始终不带音频。</p>
+        <label for="quality-seed">对照 seed · 可留空保持随机</label><input id="quality-seed" type="number" min="0" max="2147483647" step="1" placeholder="同文对照时两次填相同整数">
+        <p class="hint">整句模式每个短段最多30.72秒，超限报错、不截断或自动换音频路径。不更改参考档案/采样/分句。声码器四路径对照仅针对faster引擎；训练adapter保留原native整句codec。统计不等于真人试听；首声/速度和音质均待双T4验证。双卡短测按钮仍测原路径，不是这些音频路径对比。</p>
+        <label for="text">输入文字 · Ctrl / ⌘ + Enter发送</label>
+        <textarea id="text" rows="3" placeholder="输入问题，或切到直接朗读模式。回答可边生成边播放；模型音频尚未自动逐句ASR核验。"></textarea>
+        </div>
+        <div class="actions"><button id="btn-speak" class="primary" type="button">▶ 开始</button><button id="btn-stop" type="button">■ 停止</button></div>
+      </div>
+      <div class="panel output-panel">
+        <h2>回答与播放</h2>
+        <div id="llmout" class="scroll" role="region" aria-label="回答文本" tabindex="0"></div>
+        <div id="errbox" role="alert"></div>
+        <div class="meter" aria-label="播放缓冲水位"><div id="bufbar"></div><div id="wm-low" class="wm"></div><div id="wm-high" class="wm"></div></div>
+        <div class="stats">
+          <div><span>已缓冲</span><b id="m-buf">0.0 s</b></div><div><span>生产速度</span><b id="m-rate">0.00×</b></div><div><span>预测欠载</span><b id="m-risk">0%</b></div><div><span>欠载次数</span><b id="m-under">0</b></div><div><span>启动阈值</span><b id="m-need">-</b></div>
+        </div>
+        <div class="muted" id="m-pol"></div>
+      </div>
+    </section>
+    <section id="tab-lab" class="main-view" aria-labelledby="lab-title" hidden>
+      <div class="panel controls">
+        <div class="panel-title"><h2 id="lab-title">录制参考语音</h2><button id="btn-reference-options" type="button" aria-label="参考文本与校准选项" aria-expanded="false" aria-controls="reference-options">选项</button></div>
+        <div class="scroll" tabindex="0" role="region" aria-label="参考采集配置">
+          <div class="grid"><div><label for="pname">快速档案名称</label><input id="pname" maxlength="128" placeholder="自命名 · 最多64字符"></div><div><label for="plang">参考语言</label><select id="plang"><option value="auto">自动识别</option><option>Chinese</option><option>English</option><option>Japanese</option><option>Korean</option></select></div></div>
+          <label for="files">参考音频 · 可多选</label><input id="files" type="file" accept="audio/*,video/*" multiple>
+          <details id="reference-options"><summary>参考文本、校准与限额说明</summary>
+            <label for="preftext">已知文本（可选；单个≤所选窗口的文件直接采用；长全文自动时间戳转写，不按比例硬切）</label><textarea id="preftext" rows="2"></textarea>
+            <label for="pcontext">模型参考窗口（不是录音限额）</label><select id="pcontext"><option value="16">16秒上限 · 默认</option><option value="24">24秒上限 · 较长参考实验，可能更慢</option></select><p class="hint">长录音可超过15秒，会按词时间或实际窗口识别并择优取锚点；更长不保证更像，不是全数据训练。低输入电平归一化也会放大底噪；“能量跨度代理”不是实际噪声底或真实 SNR 测量。</p><label><input id="pcal" type="checkbox"> 额外GPU校准候选锚点（较慢，默认关闭；也可稍后手动执行，不是训练）</label>
+            <p class="hint">系统按可用依赖执行降噪、Whisper转写、锚点和参考呼吸分析；参考呼吸不会拼接到生成音频，生成端呼吸效果当前未实现；真实模型尚未验收。录音请求关闭回声消除/降噪/自动增益，实际设备可能不支持这些约束。</p>
+            <p class="hint">切换到对话或打开诊断会停止采集并保留有效片段；上传失败保留本地片段。档案只是参考准备，不代表模型已训练。</p>
+            <p class="hint">默认≤16文件、64MiB/段、1200秒/段、累计1800秒；整请求128MiB，超限拒绝而非截断。本地127MiB，约20分钟自动停止；分块上限8192；服务端独立复核。压缩容器需解码器，无ffmpeg请优先上传WAV。</p>
+          </details>
+        </div>
+        <div class="actions"><button id="btn-rec" type="button">● 录音</button><button id="btn-create" class="primary" type="button">创建声音档案</button></div>
+        <div class="bar"><div id="jobbar"></div></div><pre id="jobinfo" class="out" role="status"></pre>
+      </div>
+      <div class="panel stack"><div class="panel-title"><h2>声音档案</h2><button id="btn-libraries" type="button" aria-haspopup="dialog" aria-controls="library-dialog">声音库与样本</button></div><p class="hint">可先命名建空库，再添加样本；快速创建旧流程仍保留。</p>        <canvas id="rec-wave" width="600" height="96" role="img" aria-label="麦克风实测时域波形"></canvas>
+        <p id="rec-status" class="muted" role="status">未采集；不会显示模拟波形</p><div id="rec-meter" class="muted">未采集</div>
+        <p id="rec-download-status" class="muted" role="status">每段录制结束后可下载参考语音原文件；请在提交前下载备份。刷新或退出会清空未提交片段，下载不会转码。</p>
+        <div id="rec-clips" role="region" aria-label="本地录音片段" tabindex="0"></div>
+<div id="profiles" class="scroll fill" role="region" aria-label="声音库档案" tabindex="0"></div></div>
+    </section>
+    <dialog id="library-dialog" aria-labelledby="library-title">
+      <div class="dialog-header"><h2 id="library-title">声音库与参考样本</h2><button id="btn-library-lock" class="sm" type="button">退出并停止</button><button id="btn-library-close" type="button" autofocus>关闭</button></div>
+      <div class="dialog-content scroll" tabindex="0" role="region" aria-label="声音库管理内容">
+        <p class="hint">先自命名创建空库，再添加样本、勾选并处理参考。原始样本尚未解码，不是训练好的模型。处理后档案的锚点/转写仍沿用原有Dataset备份设置。仅本次工作目录保存，不自动备份到Dataset；Kaggle会话结束可能丢失。</p>
+        <div class="panel"><h3>1 · 建立空库</h3><div class="grid"><div><label for="library-name">自定义库名 · 最多64字符</label><input id="library-name" maxlength="128" autocomplete="off" placeholder="请自行命名，不预填"></div><div><label for="library-language">参考语言</label><select id="library-language"><option value="auto">自动识别</option><option>Chinese</option><option>English</option><option>Japanese</option><option>Korean</option></select></div></div><button id="btn-library-create" type="button">仅创建命名空库</button></div>
+        <div class="panel"><h3>2 · 管理原始样本</h3><label for="library-select">选择已保存的库</label><div class="row"><select id="library-select" style="flex:1"></select><button id="btn-library-refresh" type="button">刷新</button></div><p id="library-state" class="hint"></p>
+          <label for="library-files">向当前库添加文件 · 可多选</label><input id="library-files" type="file" accept="audio/*,video/*" multiple><div class="row"><button id="btn-library-upload" type="button">添加所选文件</button><button id="btn-library-clips" type="button">添加本地录音</button></div>
+          <p class="hint">可先关闭窗口录音，再回来添加。默认16样本/库、64MiB/段、64MiB/库、512MiB总原始数据；同库相同内容去重。时长在处理时独立复核，超限拒绝而非截断。</p><div id="library-samples" role="group" aria-label="已保存参考样本"></div>
+          <details id="library-delete-options"><summary>删除本库原始数据</summary><p class="hint">删除不可撤销；不会删除独立生成的声音档案，也不等于存储介质安全擦除。</p><button id="btn-library-delete" type="button">确认删除当前库及原始样本</button></details>
+        </div>
+        <div class="panel"><h3>3 · 仅处理勾选参考，不是训练</h3><label for="library-reftext">已知参考文本 · 可选</label><textarea id="library-reftext" rows="2" maxlength="20000"></textarea><label for="library-context">参考窗口上限</label><select id="library-context"><option value="16">16秒 · 默认</option><option value="24">24秒 · 长参考实验</option></select><label><input id="library-calibrate" type="checkbox"> 额外校准候选锚点（较慢，默认关闭，不是训练）</label><button id="btn-library-process" class="primary" type="button">处理勾选参考（不是训练）</button></div>
+        <details id="training-options" class="panel"><summary>4 · 训练输入快照（不是训练执行）</summary>
+          <p class="hint">先在上方勾选样本，再逐条填写对应转写并明确选统一参考。首版仅接受完整24kHz单声道PCM16 WAV；其他容器会拒绝，不自动转换/截断。训练输入仍需1.5–240秒短样本，统一参考≤16秒；长录音不能直接作为单条训练序列，须按可信时间戳切分并逐条核对转写。转写和说话人只由你声明，尚未模型核验。</p>
+          <div id="training-transcripts" role="group" aria-label="训练输入逐条转写与参考选择"></div>
+          <label><input id="training-rights" type="checkbox"> 我有权将这些声音用于训练，并同意保存独立本地副本</label>
+          <label><input id="training-single-speaker" type="checkbox"> 所选片段来自同一位已授权说话人</label>
+          <button id="btn-training-prepare" type="button">生成训练输入快照（不训练）</button>
+          <p class="hint">输出私有WAV、逐条JSONL、哈希清单与双rank分配计划。未提取audio_codes、未启动rank/梯度/优化器或训练。仅本次工作目录保存；不自动Dataset备份。删除原库不会删除此副本，可在下方单独删除。</p>
+          <label for="training-datasets">已保存的训练输入副本（所有来源库）</label><select id="training-datasets"></select>
+          <div class="row"><button id="btn-training-refresh" type="button">刷新输入列表</button><button id="btn-training-verify" type="button">按固定哈希校验</button></div>
+          <details id="training-delete-options"><summary>删除选中的训练输入副本</summary><button id="btn-training-delete" type="button">确认只删除该输入副本</button></details>
+          <pre id="training-result" class="out" role="status"></pre>
+        </details>
+        <p id="library-message" role="status" class="hint"></p><p class="hint">关闭窗口只取消页面等待，已提交的写入或后台参考处理可能继续；重新打开后刷新核对。失败保留原始样本；处理成功不代表推理、双T4训练或性能已经验收。</p>
+      </div>
+    </dialog>
+    <dialog id="diagnostics" aria-labelledby="diagnostics-title">
+      <div class="dialog-header"><h2 id="diagnostics-title">诊断与高级信息</h2><button id="btn-lock-dialog" class="sm" type="button">退出并停止</button><button id="btn-close-diagnostics" type="button" autofocus>关闭</button></div>
+      <div class="dialog-content scroll" tabindex="0" role="region" aria-label="诊断内容">
+        <section id="tab-mon">
+          <div class="panel"><h3>后端兼容探针 · 只读</h3><pre id="preflight-output" class="out">尚未读取；接口检查不代表模型或训练验收。</pre></div>
+          <div class="panel"><h3>系统与工作进程</h3><div class="muted" id="mon-agg"></div><div class="grid" id="workers"></div></div>
+          <div class="panel"><h3>各阶段中位耗时</h3><pre id="mon-stage" class="out"></pre></div>
+          <div class="panel"><h3>最近运行</h3><div class="table-scroll"><table><thead><tr><th>时间</th><th>字数</th><th>段数</th><th>音频s</th><th>速度倍率</th><th>服务端首声ms</th><th>浏览器首音ms</th><th>欠载</th><th>异常</th></tr></thead><tbody id="runs"></tbody></table></div></div>
+        </section>
+        <div class="panel"><h3>本次分段与调度</h3><div class="table-scroll"><table><thead><tr><th>#</th><th>文本</th><th>前置停顿</th><th>GPU</th><th>RTF(耗时/时长)</th><th>首包</th></tr></thead><tbody id="segbody"></tbody></table></div><h3>本次各阶段耗时</h3><div id="timeline"></div></div>
+        <div class="panel"><label for="baseurl">当前页面同源网关（只读）</label><div class="row"><input id="baseurl" readonly style="flex:1"><button id="btn-connect" class="sm" type="button">重新检测</button></div></div>
+        <p class="hint">单用户口令不是多租户平台。探针未加载权重；参考缓存不是微调。双T4推理/训练、DeepSeek长流、物理麦克风、首声&lt;3秒、RTF≤0.3与音色相似度仍需独立实机验收。</p>
+      </div>
+    </dialog>
+  </fieldset>
+</main>
+<script src="recorder.js"></script>
+<script src="diagnostic-trace.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

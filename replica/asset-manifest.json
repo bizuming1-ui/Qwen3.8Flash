@@ -1,0 +1,519 @@
+{
+  "source": "kaggle_workspace/notebooks/kaggle.ipynb",
+  "assets": [
+    {
+      "path": "LICENSE-QWEN-DERIVED.txt",
+      "bytes": 11343,
+      "sha256": "a44a6081c73ad75f0255bb2bb5cab74ef1829565a895a24e53a4f11290ab7655",
+      "verified": true,
+      "group": "LICENSE-QWEN-DERIVED.txt"
+    },
+    {
+      "path": "MEMO.md",
+      "bytes": 2099,
+      "sha256": "6df03776be4440126668781b77f96796dd2b15d11b5dcaa7599b4f47ba7cc720",
+      "verified": true,
+      "group": "MEMO.md"
+    },
+    {
+      "path": "go/gateway/autoentry.go",
+      "bytes": 7484,
+      "sha256": "e90f5a51155fec4092b4ef0fcbc53561a5325daaaa5468e73bdda9f7967c6541",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/fidelity_test.go",
+      "bytes": 5798,
+      "sha256": "f0127c65aec6b13dc996fcb22ccac3dff794155f7770faae23bdb474b280528b",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/go.mod",
+      "bytes": 29,
+      "sha256": "00f1a160ee5ea066ed545d93f8c6920689ddbea2bb10006107eec99804871a41",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/llm.go",
+      "bytes": 4230,
+      "sha256": "b09551b0885da2aa4ea5b106b558b2528b66b92cbbc77534a4b9c52abfce0f2b",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/main.go",
+      "bytes": 15190,
+      "sha256": "87ce0e0f0da69c77f61237e218bf788e77236f763ac40b76686cc28f46294a15",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/monitor.go",
+      "bytes": 10414,
+      "sha256": "deb9525809b47bb594da62d76b274fba88085152b6b5b224a365efac1ac762c1",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/preflight_test.go",
+      "bytes": 2248,
+      "sha256": "21d832143de74eb68e6758b2bc6d741b16132c820d225ffa7b150ca3e266d657",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/reliability_test.go",
+      "bytes": 5492,
+      "sha256": "3e039fa7ccaddfcfd813b0c06e657d49e1a076fe19844f097c263eef08a04d20",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/runtime_build.go",
+      "bytes": 400,
+      "sha256": "310f0131d65abad6e5f34969bef2a01cb9b9d36560353f54040de9d95aee24b9",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/scheduler.go",
+      "bytes": 11744,
+      "sha256": "2e61edecef8747d597ad5349fc2d017a70d4f5dc5f4f63cb3648e7f3f9227be2",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/security.go",
+      "bytes": 7408,
+      "sha256": "d63f048c0040d1066a6bf40466468e19d836904ca086603b6a213aa7295ecec0",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/security_test.go",
+      "bytes": 11391,
+      "sha256": "a6b3a2126469b9e4c21f3336961c44ae84adf282f2db0812276edae3ab1c3484",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/segmenter.go",
+      "bytes": 11393,
+      "sha256": "d3eea754ad00fe79fd2380284d438c07b8786583af7a9e334e2940fdd3362910",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/segmenter_test.go",
+      "bytes": 3506,
+      "sha256": "0d8171656e80e8423755d82f6d59797e8739bfb4ccfcd25f9a639ff1ac8bdd8d",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/session.go",
+      "bytes": 19585,
+      "sha256": "a4747758dcd0f4a6f5fb8afba55e1d5457b86ea94f5a2af887c284cbd4f271e0",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "go/gateway/voice_binding_test.go",
+      "bytes": 3995,
+      "sha256": "025a8117093d50606ec087c6559b76c770a069c058e94f0af2eff59c43932f3e",
+      "verified": true,
+      "group": "go"
+    },
+    {
+      "path": "py/access_control.py",
+      "bytes": 2810,
+      "sha256": "8e90f2b9fe6cf98ca0192bcf1684158cc84f1609ec3ec1d76e2968455d1193d3",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/adapter_engine.py",
+      "bytes": 6571,
+      "sha256": "01ae6434d71db5a04ccfa1e73f36495ba6e67deee7ae4477133297272cb37478",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/analyst.py",
+      "bytes": 63656,
+      "sha256": "d68b518197be203b591e488af6acad4c17070f2f8df3b55578e2534608c2ee3d",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/audio_rt.py",
+      "bytes": 8694,
+      "sha256": "be55abe211192144b96c5e89ad24b233f2e56cba193d9577b0e00e46b10b95d7",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/bootstrap.py",
+      "bytes": 20645,
+      "sha256": "ebb5aecb15ec85be0dcc997feba5af34eb29463b79766d08efbc072fd94dfb47",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/clone_stream.py",
+      "bytes": 9246,
+      "sha256": "3c3dee7bb69ee016ea513749914ef9516888c141a0674688533ace1dc0a262f9",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/diagnostic_audio.py",
+      "bytes": 7523,
+      "sha256": "cea933df30559a9c6455afe073aa5d89bb39345523f9ecc2ef3eb96cf8c98f64",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/diagnostic_pair.py",
+      "bytes": 9206,
+      "sha256": "8abde2dccdb8adb9100926e044ac6873e722db186c0feddc2aeb091f2b198217",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/diagnostic_store.py",
+      "bytes": 7172,
+      "sha256": "033020ce9a28f3d11b82984fd048d30b8b861d3560b13f6c068ab6b49416ef84",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/diagnostic_training.py",
+      "bytes": 3395,
+      "sha256": "a52ed35e01436fbef7dfd3a39806e3a97a4957d555424dafe7279e9c11c08824",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/gpu_ownership.py",
+      "bytes": 7098,
+      "sha256": "2561308fdc916e8fbe3afad009fbfeb5b1f0d4c19a98e3bcb9d6828694b22f7d",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/library_api.py",
+      "bytes": 9573,
+      "sha256": "33fd6d39e3335467dcb73584579d0230f5bc8d4e1e2bd5dc4552c418404b8d43",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/lora_adapter.py",
+      "bytes": 4473,
+      "sha256": "93ead0856e2289dc8d6f90b650435b6a50170a2941dc1f3f4ea02615fd60e718",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/notebook_monitor.py",
+      "bytes": 5627,
+      "sha256": "843572ef28c829323ff83c60a7e062886e31fe7daf57a90dcf88a05949418e5d",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/persist.py",
+      "bytes": 4269,
+      "sha256": "edc7e0147e9dc69fa8ef8eba65f875179b2720f94d5e2416de098cf81e69b0e1",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/private_entry.py",
+      "bytes": 1999,
+      "sha256": "001936b9ae5eb7e708fc063c93625ea8ec76abe2d27e359236833ebb3e1e38a1",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/qtts_common.py",
+      "bytes": 6616,
+      "sha256": "c4ceea954c69a2b02f3d3f2afeaf7a3708e444910dec8b64268ebe1b04bc1b01",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/qwen_compat.py",
+      "bytes": 5165,
+      "sha256": "1ed62dfd25edb86eda695bf767bfa0ca0cb10b6da916f4b164500e8e52a4afb8",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/reference_guard.py",
+      "bytes": 7980,
+      "sha256": "5a8a0879badc30b9c0442907f59e052238bdf056f591a4ababfc3712243ec84a",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/reference_segments.py",
+      "bytes": 4844,
+      "sha256": "f07e9956b266bdcbd3ccab5716cc9f614da13e28a64f3797a978d10bc4600625",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/resource_limits.py",
+      "bytes": 7017,
+      "sha256": "831c3b839566ba012d2788394f8d62927e29a4d49e02dd2fdc82a5ddb92740e1",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/runtime_build.py",
+      "bytes": 272,
+      "sha256": "1dfe924940ab24ce85f45d36175180017a3b74b252c15d474872b5265d6f123d",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/step18_audio_rt.py",
+      "bytes": 9854,
+      "sha256": "5e1676106c89ef79e891acab3efdb826e0d32e9a065d58d550964d9e276d2ccd",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/step18_calibration_metrics.py",
+      "bytes": 4344,
+      "sha256": "e63f254c9bc031fe640bf45de8bb5bb3ef89ac5f9574ea4ba2c9949a15ab16e8",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/step18_calibration_state.py",
+      "bytes": 3072,
+      "sha256": "7a7c83c890b80bcaa0ceb7191c37475794f291e14bb896179674d1c2dcbf71ac",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/step18_profile_inputs.py",
+      "bytes": 4177,
+      "sha256": "d433811c49e0fb83893d02abf5f0434b2926af553fa05622026ba127cd0f34db",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/step18_trimmer.py",
+      "bytes": 7013,
+      "sha256": "762b797128a584e40d3557c2a776b9812770f5e2d94fd8e9468e566830ae9c7e",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/supervisor.py",
+      "bytes": 9861,
+      "sha256": "77493d2401bf316abea318b9a4929dca2cbf2df841eb6e2c7f5a8208cc5e2fec",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/trained_profiles.py",
+      "bytes": 10740,
+      "sha256": "58760a3255cb8399271fb3bd0099a11704d9f603a3cc0d57ff6a0296ed26b8e7",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/training_codes.py",
+      "bytes": 23767,
+      "sha256": "78ac55d6172d392c02d5b1a775e8ed82a404efbbdef98273d8887e7d4db0e384",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/training_data.py",
+      "bytes": 19221,
+      "sha256": "0b9203428dfdfeacec4c82f601414bb50b4a499d6cf7aad214efe7d6c8ccf5e0",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/training_job.py",
+      "bytes": 14079,
+      "sha256": "51a7566fa636559372b2780d7044cc29dbe2c5767214948f25629572daff5242",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/tts_dataset.py",
+      "bytes": 6551,
+      "sha256": "74392d601c2bef75a223c58d869af9b6175affc7306d88502ba37492acd298db",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/tts_training.py",
+      "bytes": 13076,
+      "sha256": "ca2b7c4484d8da7edf15b8fc92072655bb3f39af22f3302546fea2397a828a66",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/voice_binding.py",
+      "bytes": 2737,
+      "sha256": "f013fb84abbeca6477aba88fd3c5c43ef1a1c05d7cad8442aca4b236ebb63fb6",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/voice_library.py",
+      "bytes": 18183,
+      "sha256": "c86f833eaf0b5e286e12b50744a42b5bafa15fefe54996c3e33790729ad05fea",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "py/worker.py",
+      "bytes": 38810,
+      "sha256": "30676b77093c9c7ff3f86577f3ea16ec540121e83a6c7b6c8998274f69e3d15a",
+      "verified": true,
+      "group": "py"
+    },
+    {
+      "path": "rust/audio_rt/Cargo.toml",
+      "bytes": 326,
+      "sha256": "e032c80857b9e45bfc7bcf4d56c5827fcd9a5ceeac839f0ed9716aea2ebefd2b",
+      "verified": true,
+      "group": "rust"
+    },
+    {
+      "path": "rust/audio_rt/src/lib.rs",
+      "bytes": 12887,
+      "sha256": "97cb3db3561866ad9cc8f48b9f89003bbeae45fe3207a6082c3c7dd264a8ed45",
+      "verified": true,
+      "group": "rust"
+    },
+    {
+      "path": "tools/backend_probe.py",
+      "bytes": 12090,
+      "sha256": "5e9d6d2ddb00555b4bf6d17b685250550fa1c1c98f57514a17544417efc06351",
+      "verified": true,
+      "group": "tools"
+    },
+    {
+      "path": "tools/e2e_check.py",
+      "bytes": 7427,
+      "sha256": "188e1e22948d20b72ee41e062cd7c8e36bd482901664f923aa23c9ead5a12dae",
+      "verified": true,
+      "group": "tools"
+    },
+    {
+      "path": "tools/encode_training.py",
+      "bytes": 6922,
+      "sha256": "324a88f9fdba7ad2fb713e79aad52cae099fd57f38c588732b25040da43022ef",
+      "verified": true,
+      "group": "tools"
+    },
+    {
+      "path": "tools/resource_control.py",
+      "bytes": 1930,
+      "sha256": "237d1abee6d7470ac7136973334c7cf065a5ad0727977c04fea024a493777437",
+      "verified": true,
+      "group": "tools"
+    },
+    {
+      "path": "tools/selftest.py",
+      "bytes": 7022,
+      "sha256": "b12f9e0af45d18e7c85b6a00e1d2c0e05b1cffc18a998f1d6cd90c8f57f27124",
+      "verified": true,
+      "group": "tools"
+    },
+    {
+      "path": "tools/train_tts.py",
+      "bytes": 2662,
+      "sha256": "3fa354d0d352fea8de4b6d650fdceae6f206cfae352861dd163e3871dfb197eb",
+      "verified": true,
+      "group": "tools"
+    },
+    {
+      "path": "tools/trained_voice.py",
+      "bytes": 1756,
+      "sha256": "bca66c9e187414de35bcb1d29451a2dd1e476cb491fc8e641d5007c723047dc1",
+      "verified": true,
+      "group": "tools"
+    },
+    {
+      "path": "tools/voice_benchmark.py",
+      "bytes": 9705,
+      "sha256": "e27217da7c86fbd3a9a4fb3ad792cddd4b86ae9fb8a1f49eb6c4cb6ee3755619",
+      "verified": true,
+      "group": "tools"
+    },
+    {
+      "path": "tools/watermark_check.py",
+      "bytes": 6273,
+      "sha256": "43de4bea8040ee09e88961d7f9997ea3274b39cc82c09421b291b731a22f9f3f",
+      "verified": true,
+      "group": "tools"
+    },
+    {
+      "path": "web/app.js",
+      "bytes": 84727,
+      "sha256": "cadb15f62dfba3b1fde68593deb4e14d6cdedc9735a4b354f5af8cb40f59d078",
+      "verified": true,
+      "group": "web"
+    },
+    {
+      "path": "web/diagnostic-trace.js",
+      "bytes": 6149,
+      "sha256": "df963b291c26e1f31a7c1513b98b6a3c142f68c18e31bb71f305590d537f9aab",
+      "verified": true,
+      "group": "web"
+    },
+    {
+      "path": "web/index.html",
+      "bytes": 28104,
+      "sha256": "abd5913d0b5886f5692e0f28dd1399b2bcc2d68ba9c752377a132cfd39fe5655",
+      "verified": true,
+      "group": "web"
+    },
+    {
+      "path": "web/recorder.js",
+      "bytes": 12054,
+      "sha256": "01b6602be2f9c0b650e4435f193079bf82f7ba614dd89d04b43034a6c93b47c5",
+      "verified": true,
+      "group": "web"
+    }
+  ],
+  "verified": 70,
+  "total_bytes": 723119,
+  "web": [
+    {
+      "file": "index.html",
+      "bytes": 28104,
+      "sha256": "abd5913d0b5886f5692e0f28dd1399b2bcc2d68ba9c752377a132cfd39fe5655"
+    },
+    {
+      "file": "app.js",
+      "bytes": 84727,
+      "sha256": "cadb15f62dfba3b1fde68593deb4e14d6cdedc9735a4b354f5af8cb40f59d078"
+    },
+    {
+      "file": "recorder.js",
+      "bytes": 12054,
+      "sha256": "01b6602be2f9c0b650e4435f193079bf82f7ba614dd89d04b43034a6c93b47c5"
+    },
+    {
+      "file": "diagnostic-trace.js",
+      "bytes": 6149,
+      "sha256": "df963b291c26e1f31a7c1513b98b6a3c142f68c18e31bb71f305590d537f9aab"
+    }
+  ]
+}

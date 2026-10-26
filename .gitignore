@@ -42,6 +42,10 @@ Thumbs.db
 *.parquet
 *.arrow
 
+# ---- replica runtime state (real files on disk, but noisy to version) ----
+kaggle_workspace/replica_state/*
+!kaggle_workspace/replica_state/README.md
+
 # ---- exceptions: small metadata files that must stay versioned ----
 !kaggle_workspace/input/**/dataset-metadata.json
 !kaggle_workspace/input/**/README.md

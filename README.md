@@ -1,8 +1,13 @@
-# Kaggle Voice Lab · 语音克隆实验模拟器
+# Kaggle Voice Lab · 语音克隆实验模拟器 + QTTS 网站复刻
 
 > 在浏览器里粘贴**完整的 Kaggle 代码**，它会立刻变成这个 Git 仓库里的**真实文件**，
 > 并且可以一键 **commit + push 到 GitHub**。
 > 运行时的日志 / loss 曲线 / GPU 指标是**模拟器生成**的，但你的代码、笔记本、实验记录都是**真实落盘**的。
+
+> 🆕 **已从你粘贴的 `kaggle.ipynb` 中解包出 70 个 SHA-256 校验过的源码资产**，
+> 并把其中 4 个网站文件**字节级原样**复刻到 `/site/`（QTTS · 双 T4 声音台），
+> 配上 Node 实现的 **38 个兼容 API**，网站所有功能在本地都能操作。
+> 详见 [网站复刻研究报告](docs/REPLICA.md)。
 
 [![branch](https://img.shields.io/badge/branch-arena%2F3de266c9--qwen3--8flash-blue)](#) [![runtime](https://img.shields.io/badge/node-%E2%89%A518-339933)](#)
 
@@ -35,7 +40,9 @@ npm start          # 监听 0.0.0.0:3000
 ```bash
 PORT=8080 npm start                    # 换端口
 ENABLE_LOCAL_PYTHON=1 npm start        # 可选：允许真实执行轻量 Python 片段（默认关闭，见安全说明）
+npm run extract                         # 从 kaggle.ipynb 重新解包 + SHA-256 校验 70 个源码资产
 npm run check                           # 语法检查所有服务端 JS
+npm test                                # 62 项：语法 + HTTP 契约 + 浏览器(jsdom) 端到端
 npm run seed                            # 从命令行再生成一份语音克隆模板 notebook
 ```
 
@@ -64,7 +71,7 @@ kaggle_workspace/notebooks/<名称>.py      ← "# %%" cell 导出，可重新�
 
 ---
 
-## 四个模拟器
+## 五个模拟器
 
 | 模拟器 | 作用 | 是否真实 |
 | --- | --- | --- |
@@ -72,8 +79,20 @@ kaggle_workspace/notebooks/<名称>.py      ← "# %%" cell 导出，可重新�
 | **环境模拟器** | 模拟 T4×2 GPU、CPU/RAM/磁盘仪表、会话计时、预装包清单、代码静态分析（框架 / 超参 / 数据路径 / 提示） | 硬件数值**模拟**，静态分析**真实** |
 | **数据集模拟器** | 挂载 LJSpeech / VCTK / LibriTTS / 自定义参考语音，在 `input/` 下创建 `dataset-metadata.json`、`README.md`、`files.txt` | 只创建**占位元数据**，不下载 GB 级音频 |
 | **训练实验模拟器** | 基于你的代码静态分析结果，流式（SSE）产生日志、loss 曲线、lr、产物清单，并写入 `working/runs/<id>/` 和 `experiments/<id>.json` | 日志 / 指标**模拟**，产物文件**真实** |
+| **QTTS 网站复刻** | `/site/` = 你 Kaggle 代码内嵌网站的**原始字节**；`/lab/` 的「🌐 网站复刻」页一键签发私有入口、内嵌原站；后端 38 个接口全部可用 | 前端**字节一致**，后端契约一致，音频/模型为模拟 |
 
 右侧「Git 状态」和顶部「提交到 GitHub」不是模拟器 —— 它们调用真实的 `git`。
+
+### 网站复刻的三个新页面
+
+在实验室顶部切换：
+
+- **🌐 网站复刻** — 生成一次性私有入口（grant → HttpOnly 会话），iframe 内直接跑原站；
+  也支持新标签打开和 Bearer 手动口令。
+- **🧬 源码资产** — 浏览 `replica/source/` 全部 70 个 Go/Python/Rust/JS 文件，
+  在线重算 SHA-256 校验。
+- **🔌 API 兼容矩阵** — 列出 38 个端点的原始来源（Go gateway / Python analyst /
+  library_api / diagnostic_pair）与实现状态。
 
 ---
 
@@ -98,7 +117,12 @@ Qwen3.8Flash/
 │   ├── input/                   # 模拟 /kaggle/input
 │   ├── working/                 # 模拟 /kaggle/working（日志、指标、配置）
 │   └── experiments/             # 每次模拟运行的记录
+├── replica/                     # ★ 从 Kaggle 代码解包的真实源码（70 个已校验资产）
+│   ├── asset-manifest.json      #   路径 / 字节 / SHA-256 / 校验结果
+│   ├── source/                  #   go/ py/ rust/ tools/ web/ 全部原始文件
+│   └── web/                     #   4 个网站文件（与 Kaggle 内嵌资源字节一致）
 ├── docs/
+│   ├── REPLICA.md               # ★ QTTS 网站复刻 · 代码研究报告
 │   ├── ARCHITECTURE.md          # 架构、API、持久化与安全设计
 │   ├── USAGE.md                 # 详细使用说明 / 快捷键 / FAQ
 │   └── VOICE_CLONE_GUIDE.md     # 语音克隆在 Kaggle 上的工程建议
@@ -111,6 +135,9 @@ Qwen3.8Flash/
 
 - 这里的 GPU（Tesla T4 ×2）、显存、loss 曲线、epoch 时间、预装包版本都是**模拟展示值**，
   本沙箱没有 GPU，也不会执行你的训练代码。日志里全部带 `SIMULATED` 标识。
+- `/site/` 的网站文件是**原样字节**，但它调用的后端是本地兼容实现：
+  语音是**合成音**、聊天回复是**本地模拟文本**、双卡 worker 是**模拟快照**，
+  所有回执都标注 `simulated:true` / `quality_verified:false`。真实音质必须回 Kaggle 双 T4 验证。
 - `.ipynb` 中的输出如果来自模拟运行，会带有 `[SIMULATED]` 前缀，metadata 里
   `kaggle_lab.simulatedOutputs = true`。
 - `ENABLE_LOCAL_PYTHON=1` 才会启用「真实本地 Python 执行」接口，默认关闭。
@@ -121,6 +148,7 @@ Qwen3.8Flash/
 
 ## 文档
 
+- 🌐 [QTTS 网站复刻 · 代码研究报告](docs/REPLICA.md) ← 你的 Kaggle 代码到底做了什么
 - 📘 [使用说明（含快捷键与 FAQ）](docs/USAGE.md)
 - 🏗 [架构与 API 设计](docs/ARCHITECTURE.md)
 - 🎙 [语音克隆 Kaggle 工程建议](docs/VOICE_CLONE_GUIDE.md)

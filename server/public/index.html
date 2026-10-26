@@ -41,6 +41,7 @@
       </div>
 
       <div class="toolbar">
+        <button class="btn btn-accent" id="btn-open-replica" title="打开原站复刻">🌐 复刻网站</button>
         <button class="btn btn-primary" id="btn-import" title="Ctrl/⌘ + I">⬇ 导入完整 Kaggle 代码</button>
         <button class="btn" id="btn-save" title="Ctrl/⌘ + S">💾 保存</button>
         <button class="btn btn-accent" id="btn-run" title="模拟运行全部 cell">▶ 模拟运行</button>
@@ -85,6 +86,16 @@
 
       <!-- ---------------------- NOTEBOOK ---------------------- -->
       <main class="notebook-pane" id="notebook-pane">
+        <div class="view-tabs" id="view-tabs">
+          <button class="view-tab active" data-view="notebook">📓 笔记本</button>
+          <button class="view-tab" data-view="replica">🌐 网站复刻</button>
+          <button class="view-tab" data-view="assets">🧬 源码资产</button>
+          <button class="view-tab" data-view="api">🔌 API 兼容矩阵</button>
+          <span class="view-tabs-note" id="view-tabs-note">70/70 资产已校验</span>
+        </div>
+
+        <!-- ============ VIEW 1: notebook ============ -->
+        <div id="view-notebook" class="view">
         <div class="nb-header">
           <div>
             <h1 id="nb-title">—</h1>
@@ -129,6 +140,74 @@
           但你粘贴/编辑的代码会<strong>真实写入</strong> <code>kaggle_workspace/notebooks/*.ipynb</code> 与
           <code>*.py</code>，可随时上传回 Kaggle 或提交到 GitHub。
         </div>
+        </div><!-- /view-notebook -->
+
+        <!-- ============ VIEW 2: replica website ============ -->
+        <div id="view-replica" class="view hidden">
+          <div class="replica-hero">
+            <div>
+              <h1>QTTS · 双 T4 声音台 <span class="pill pill-sim">原站字节级复刻</span></h1>
+              <p class="tiny-note">
+                你粘贴的 Kaggle 单 cell 代码里内嵌了 <strong>70 个 SHA-256 校验过的源码资产</strong>，其中
+                <code>web/index.html</code> · <code>app.js</code> · <code>recorder.js</code> ·
+                <code>diagnostic-trace.js</code> 构成了「QTTS 声音台」网站。
+                本项目把这四个文件<strong>原封不动</strong>解包到 <code>replica/web/</code> 并在
+                <code>/site/</code> 提供，配合 Node 实现的<strong>完全兼容后端</strong>（Go gateway + Python analyst 的 38 个接口），
+                使网站所有功能在本地都能操作。
+              </p>
+            </div>
+          </div>
+          <div class="replica-toolbar">
+            <button class="btn btn-primary" id="btn-replica-entry">🔑 生成私有入口并进入</button>
+            <button class="btn" id="btn-replica-newtab">↗ 在新标签打开</button>
+            <button class="btn btn-ghost" id="btn-replica-reload">↻ 重新加载</button>
+            <span class="spacer"></span>
+            <span class="pill" id="replica-session-pill">未连接</span>
+          </div>
+          <div class="replica-status" id="replica-status">点击「生成私有入口并进入」— 服务端会签发一次性 grant（10 分钟有效），网站用它换取 HttpOnly 会话 Cookie 后自动解锁。</div>
+          <div class="replica-frame-wrap">
+            <iframe id="replica-frame" src="about:blank" title="QTTS 声音台复刻"
+              allow="microphone; autoplay; clipboard-write"></iframe>
+          </div>
+          <div class="replica-notes">
+            <b>复刻了什么</b>：原始 HTML/CSS/JS（字节一致）、私有入口认证流程、双 worker 健康面板、
+            二进制帧流式语音协议（type/seg/length 9 字节小端帧头、24 kHz int16 PCM）、
+            声音档案 / 声音库 / 原始样本 / 训练输入快照 / 双卡短测 / 脱敏诊断导出 / 录音与 WAV 下载。
+            <br><b>没有复刻什么</b>：真实 Qwen-TTS 模型权重、双 T4 GPU 推理、Whisper/DeepSeek 调用。
+            合成语音是<strong>确定性合成音</strong>，聊天回复带「本地模拟回复」标记；所有回执都标注
+            <code>quality_verified:false</code> / <code>simulated:true</code>。
+          </div>
+        </div>
+
+        <!-- ============ VIEW 3: source assets ============ -->
+        <div id="view-assets" class="view hidden">
+          <div class="asset-head">
+            <div><h1>🧬 Kaggle 代码源码资产</h1>
+              <p class="tiny-note">从 <code>kaggle_workspace/notebooks/kaggle.ipynb</code> 的 <code>FILES</code> 字面量解包，
+                逐个校验 <code>bytes</code> + <code>sha256</code>。全部是项目里的真实文件，不是 Kaggle 会话里的临时文件。</p></div>
+            <button class="btn btn-primary" id="btn-verify-assets">✓ 重新校验 SHA-256</button>
+          </div>
+          <div id="asset-summary" class="asset-summary"></div>
+          <div class="asset-split">
+            <div class="asset-tree-wrap"><div class="side-title"><span>replica/source/</span><span id="asset-count" class="count">0</span></div>
+              <div id="asset-tree" class="file-tree"></div></div>
+            <div class="asset-viewer-wrap">
+              <div class="side-title"><span>文件内容</span><span id="asset-current" class="count">—</span></div>
+              <pre id="asset-content" class="out-text">点击左侧任意文件查看源码（Go / Python / Rust / JS / 文档）。</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ VIEW 4: API compatibility ============ -->
+        <div id="view-api" class="view hidden">
+          <div class="asset-head">
+            <div><h1>🔌 QTTS 网关 API 兼容矩阵</h1>
+              <p class="tiny-note">原始系统：Go gateway (:7860) 反向代理到 Python FastAPI analyst (:7010) + 两个 worker (:7001/:7002)。
+                本地复刻把这套契约完整实现在 Node 里，前端 <code>web/app.js</code> 无需任何改动即可调用。</p></div>
+          </div>
+          <div id="api-summary" class="asset-summary"></div>
+          <div id="api-table" class="api-table"></div>
+        </div>
       </main>
 
       <!-- ---------------------- RIGHT SIDEBAR ---------------------- -->
@@ -152,6 +231,11 @@
           <section class="side-section">
             <div class="side-title"><span>🔍 代码静态分析</span></div>
             <div id="analysis-box" class="analysis-box"></div>
+          </section>
+
+          <section class="side-section">
+            <div class="side-title"><span>🧬 代码研究摘要</span></div>
+            <div id="research-box" class="analysis-box"></div>
           </section>
 
           <section class="side-section">

@@ -8,12 +8,19 @@
     "start": "node server/index.js",
     "dev": "node server/index.js",
     "check": "node scripts/check.js",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "extract": "python3 scripts/extract-kaggle-assets.py",
+    "test:replica": "node scripts/test-replica.js",
+    "test:browser": "node scripts/test-browser.js",
+    "test": "npm run check && npm run test:replica && npm run test:browser"
   },
   "dependencies": {
     "codemirror": "5.65.16"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.3"
   }
 }

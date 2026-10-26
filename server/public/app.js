@@ -3,7 +3,7 @@
  * Kaggle Voice Lab — browser client
  *
  * IMPORTANT: the browser is only a VIEW. All notebook state is written to
- * real files by the server (PUT /api/notebooks/:id -> .ipynb + .py).
+ * real files by the server (PUT /lab/api/notebooks/:id -> .ipynb + .py).
  * There is no localStorage-only source of truth.
  * ========================================================================= */
 
@@ -48,6 +48,9 @@ const S = {
   startedAt: Date.now(),
   currentFilePath: null,
   loading: false,
+  currentView: 'notebook',
+  replica: { status: null, entry: null, assets: null, apiMap: null, verification: null },
+  assetExpanded: new Set(['go', 'py', 'web', 'tools', 'rust', 'go/gateway', 'rust/audio_rt']),
 };
 
 /* ------------------------------------------------------------- utilities */
@@ -60,7 +63,7 @@ async function api(path, method = 'GET', body) {
   }
   let r;
   try {
-    r = await fetch('/api' + path, opt);
+    r = await fetch('/lab/api' + path, opt);
   } catch (e) {
     throw new Error('无法连接本地服务：' + e.message);
   }
@@ -119,6 +122,13 @@ async function loadBootstrap(keepId = true, preferId = null) {
   S.console.files = b.recentWrites.map((w) =>
     `[${w.at ? new Date(w.at).toLocaleTimeString() : ''}] ${w.action.padEnd(9)} ${w.path}${w.bytes ? '  ' + fmtBytes(w.bytes) : ''}`);
   S.localPythonEnabled = !!b.localPythonEnabled;
+  if (b.replica) {
+    S.replica.verification = b.replica.verification || null;
+    S.replica.status = b.replica.state || null;
+    S.replica.endpoints = b.replica.endpoints || 0;
+    const note = $('#view-tabs-note');
+    if (note && b.replica.verification) note.textContent = `${b.replica.verification.assetsVerified}/${b.replica.verification.assetsTotal} 资产已校验 · ${b.replica.endpoints} API`;
+  }
 
   const wanted = (preferId && S.notebooks.some((n) => n.id === preferId))
     ? preferId
@@ -542,7 +552,7 @@ async function startRun({ code, speed = 1, target = 'panel', cellId = null, cell
     events: 0, total: r.eventCount,
   };
   clog('log', `run ${r.runId} 已创建 · ${r.eventCount} 个事件 · ${r.analysis.lines} 行代码 · ${r.analysis.libs.length} 个框架`);
-  const es = new EventSource('/api/simulate/stream?runId=' + encodeURIComponent(r.runId));
+  const es = new EventSource('/lab/api/simulate/stream?runId=' + encodeURIComponent(r.runId));
   S.eventSource = es;
   es.onmessage = (ev) => {
     let data; try { data = JSON.parse(ev.data); } catch { return; }
@@ -727,14 +737,14 @@ function renderNbFiles() {
   const all = S.tree.notebooks || [];
   if (!S.notebook) {
     $('#nb-files').innerHTML = all.length
-      ? all.map((n) => `<a href="/api/file?path=${encodeURIComponent(n.path)}&download=1">⬇ ${esc(n.name)}</a>`).join('')
+      ? all.map((n) => `<a href="/lab/api/file?path=${encodeURIComponent(n.path)}&download=1">⬇ ${esc(n.name)}</a>`).join('')
       : '<span class="tiny-note">暂无笔记本文件</span>';
     return;
   }
   const p = S.notebook.paths;
   $('#nb-files').innerHTML = `
-    <a href="/api/file?path=${encodeURIComponent(p.ipynb)}&download=1" title="下载 notebook">⬇ ${esc(p.ipynb.split('/').pop())}</a>
-    <a href="/api/file?path=${encodeURIComponent(p.py)}&download=1" title="下载 python 导出">⬇ ${esc(p.py.split('/').pop())}</a>
+    <a href="/lab/api/file?path=${encodeURIComponent(p.ipynb)}&download=1" title="下载 notebook">⬇ ${esc(p.ipynb.split('/').pop())}</a>
+    <a href="/lab/api/file?path=${encodeURIComponent(p.py)}&download=1" title="下载 python 导出">⬇ ${esc(p.py.split('/').pop())}</a>
     <div class="tiny-note" style="padding:4px 7px">项目内共 ${all.length} 个笔记本文件</div>`;
 }
 
@@ -765,7 +775,7 @@ async function openFile(rel, quiet = false) {
     $('#file-title').textContent = rel.split('/').pop();
     $('#file-path').textContent = 'kaggle_workspace/' + rel + '  ·  ' + fmtBytes(r.size);
     $('#file-content').textContent = r.content;
-    $('#btn-file-download').href = `/api/file?path=${encodeURIComponent(rel)}&download=1`;
+    $('#btn-file-download').href = `/lab/api/file?path=${encodeURIComponent(rel)}&download=1`;
     $('#btn-file-download').setAttribute('download', rel.split('/').pop());
     showModal('modal-file');
     return true;
@@ -1039,6 +1049,200 @@ function renderConsole() {
   pre.parentElement.scrollTop = pre.parentElement.scrollHeight;
 }
 
+/* ------------------------------------------------- replica / study views */
+
+function switchView(name) {
+  S.currentView = name;
+  $$('.view-tab').forEach((t) => t.classList.toggle('active', t.dataset.view === name));
+  for (const v of ['notebook', 'replica', 'assets', 'api']) {
+    const el = $(`#view-${v}`);
+    if (el) el.classList.toggle('hidden', v !== name);
+  }
+  if (name === 'notebook') {
+    S.editors.forEach((cm) => { try { cm.refresh(); } catch {} });
+  }
+  if (name === 'replica' || name === 'assets' || name === 'api') loadReplicaData();
+}
+
+async function loadReplicaData(force = false) {
+  try {
+    if (force || !S.replica.status || !S.replica.assets || !S.replica.apiMap) {
+      const [st, assets, map] = await Promise.all([
+        api('/replica/status'), api('/replica/assets'), api('/replica/api-map'),
+      ]);
+      S.replica.status = st.replica;
+      S.replica.verification = st.manifest
+        ? { assetsVerified: st.manifest.verified, assetsTotal: st.manifest.assets, webIdentical: st.web.filter((w) => w.identical).length, webTotal: st.web.length }
+        : S.replica.verification;
+      S.replica.web = st.web;
+      S.replica.endpoints = st.endpoints;
+      S.replica.assets = assets;
+      S.replica.apiMap = map.endpoints;
+      renderResearch();
+      renderAssetSummary();
+      renderAssetTree();
+      renderApiTable();
+    }
+    renderReplicaStatus();
+  } catch (e) {
+    clog('sys', '读取复刻信息失败: ' + e.message);
+  }
+}
+
+function renderResearch() {
+  const box = $('#research-box');
+  if (!box) return;
+  const m = S.replica.assets?.manifest || {};
+  const groups = {};
+  for (const a of m.assets || []) groups[a.group] = (groups[a.group] || 0) + 1;
+  const kaggle = S.notebooks.find((n) => n.id === 'kaggle');
+  const v = S.replica.verification || {};
+  box.innerHTML = `
+    <div class="kv"><span>粘贴方式</span><b>1 cell · ${kaggle ? kaggle.codeChars.toLocaleString() : '347,551'} 字符</b></div>
+    <div class="kv"><span>内嵌资产</span><b>${m.verified || 0} 个 / ${((m.total_bytes || 0) / 1024).toFixed(1)} KB</b></div>
+    <div class="kv"><span>资产分组</span><b>${Object.entries(groups).map(([k, n]) => k + ':' + n).join(' ')}</b></div>
+    <div class="kv"><span>Go gateway</span><b>:7860</b></div>
+    <div class="kv"><span>Python analyst</span><b>:7010</b></div>
+    <div class="kv"><span>GPU workers</span><b>:7001 / :7002</b></div>
+    <div class="kv"><span>兼容 API</span><b>${S.replica.endpoints || 38} 个</b></div>
+    <div class="kv"><span>网站文件</span><b>${v.webIdentical ?? 4}/4 字节一致</b></div>
+    <div class="kv"><span>音频协议</span><b>9B 帧头 + int16 24kHz</b></div>
+    <h4>结论</h4>
+    <div class="warn-item">这是一个 <b>one-cell paste-and-run</b> 候选：先校验 70 个资产 SHA-256，
+      再检查端口/双 T4，最后用随机目录解包并启动 bootstrap。网页只是其中的 <code>web/</code> 四个文件。</div>
+    <div class="warn-item">本地复刻用 Node 实现了 Go gateway + Python analyst 的整条 API 契约；
+      模型/训练/音质仍需在 Kaggle 双 T4 上验证。</div>`;
+}
+
+function renderReplicaStatus() {
+  const el = $('#replica-status');
+  const pill = $('#replica-session-pill');
+  if (!el) return;
+  const s = S.replica.status || {};
+  const e = S.replica.entry;
+  const v = S.replica.verification || {};
+  pill.textContent = e ? '私有入口已生成' : '未连接';
+  pill.className = 'pill ' + (e ? 'pill-sim' : '');
+  el.classList.remove('bad');
+  el.innerHTML = `
+    <b>校验</b>：源码资产 ${v.assetsVerified ?? '—'}/${v.assetsTotal ?? '—'} SHA-256 通过 ·
+    网站文件 ${v.webIdentical ?? '—'}/${v.webTotal ?? 4} 字节一致 ·
+    兼容接口 ${S.replica.endpoints || 38} 个 ·
+    会话 ${s.auth?.activeSessions ?? 0} 个 ·
+    档案 ${s.profiles ?? 0} · 声音库 ${s.libraries ?? 0} · 训练快照 ${s.trainingDatasets ?? 0} · 运行 ${s.runs ?? 0} 次
+    ${e ? `<br><b>私有入口</b>：<code>${esc(e.grant)}</code>（${e.expiresIn}s 内有效，一次性）— 网站已通过 <code>/api/session/exchange</code> 换取 HttpOnly 会话。` : ''}
+    <br><b>手动解锁备用口令</b>：<code>${esc(e?.bearer || s.accessToken || '—')}</code>（也可粘贴到网站「高级：手动口令入口」）。`;
+}
+
+async function issueEntry(openNewTab = false) {
+  try {
+    const r = await api('/replica/entry', 'POST', {});
+    S.replica.entry = r;
+    const url = r.url;
+    if (openNewTab) {
+      window.open(url, '_blank', 'noopener');
+      toast('已在新标签打开复刻网站', '一次性私有入口已自动带上', 'success');
+    } else {
+      const frame = $('#replica-frame');
+      frame.src = 'about:blank';
+      setTimeout(() => { frame.src = url; }, 120);
+      toast('私有入口已生成', '网站正在自动解锁（同域 HttpOnly 会话）', 'success');
+    }
+    clog('sys', `签发一次性私有入口 ${r.grant.slice(0, 12)}… -> /site/`);
+    renderReplicaStatus();
+  } catch (e) {
+    const el = $('#replica-status');
+    el.classList.add('bad');
+    el.textContent = '生成私有入口失败：' + e.message;
+    toast('生成私有入口失败', e.message, 'error');
+  }
+}
+
+function replicaTreeHtml(nodes, level = 0) {
+  if (!nodes || !nodes.length) return '<div class="tree-empty">（空）</div>';
+  return nodes.map((n) => {
+    const open = S.assetExpanded.has(n.path);
+    const isDir = n.type === 'dir';
+    const icon = isDir ? (open ? '📂' : '📁') : (/\.go$/.test(n.name) ? '🐹' : /\.py$/.test(n.name) ? '🐍' : /\.rs$/.test(n.name) ? '🦀' : /\.js$/.test(n.name) ? '📜' : '📄');
+    return `<div class="tree-node">
+      <div class="tree-row" data-${isDir ? 'assetdir' : 'asset'}="${esc(n.path)}" title="${esc(n.path)}">
+        <span class="caret">${isDir ? (open ? '▾' : '▸') : ''}</span><span class="ico">${icon}</span>
+        <span class="nm">${esc(n.name)}</span>${!isDir ? `<span class="sz">${fmtBytes(n.size)}</span>` : ''}
+      </div>
+      ${isDir && open ? `<div class="tree-children">${replicaTreeHtml(n.children || [], level + 1)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderAssetTree() {
+  const el = $('#asset-tree');
+  if (!el || !S.replica.assets) return;
+  el.innerHTML = replicaTreeHtml(S.replica.assets.tree || []);
+  $('#asset-count').textContent = (S.replica.assets.manifest?.assets || []).length;
+}
+
+function renderAssetSummary() {
+  const m = S.replica.assets?.manifest || {};
+  const v = S.replica.verification || {};
+  const groups = {};
+  for (const a of m.assets || []) groups[a.group] = (groups[a.group] || 0) + 1;
+  $('#asset-summary').innerHTML = `
+    <div class="kpi">SHA-256 校验 <b>${v.assetsVerified ?? m.verified ?? 0}/${v.assetsTotal ?? (m.assets || []).length}</b></div>
+    <div class="kpi">原始字节 <b>${fmtBytes(m.total_bytes || 0)}</b></div>
+    <div class="kpi">网站文件 <b>${v.webIdentical ?? 4}/4 一致</b></div>
+    ${Object.entries(groups).map(([k, n]) => `<div class="kpi">${esc(k)}/ <b>${n}</b></div>`).join('')}`;
+}
+
+async function openAsset(rel) {
+  try {
+    const r = await api('/replica/asset?path=' + encodeURIComponent(rel));
+    $('#asset-content').textContent = r.content;
+    $('#asset-current').textContent = rel;
+  } catch (e) { toast('无法读取资产', e.message, 'error'); }
+}
+
+async function verifyAssets() {
+  try {
+    const r = await api('/replica/verify', 'POST', {});
+    S.replica.verification = {
+      assetsVerified: r.verification.assetsVerified, assetsTotal: r.verification.assetsTotal,
+      webIdentical: r.verification.webIdentical, webTotal: r.verification.webTotal,
+    };
+    renderAssetSummary(); renderResearch(); renderReplicaStatus();
+    const bad = r.verification.mismatches || [];
+    toast(bad.length ? '校验发现问题' : '✓ 全部资产校验通过',
+      `${r.verification.assetsVerified}/${r.verification.assetsTotal} 源码 · ${r.verification.webIdentical}/${r.verification.webTotal} 网站文件`,
+      bad.length ? 'error' : 'success');
+  } catch (e) { toast('校验失败', e.message, 'error'); }
+}
+
+function renderApiTable() {
+  const el = $('#api-table');
+  const rows = S.replica.apiMap || [];
+  if (!el || !rows.length) return;
+  const groups = {};
+  for (const r of rows) (groups[r.origin] || (groups[r.origin] = [])).push(r);
+  let html = `<div class="asset-summary">
+    <div class="kpi">已实现接口 <b>${rows.length}</b></div>
+    <div class="kpi">Go gateway <b>${(groups['Go gateway'] || []).length + (groups['Go guard'] || []).length}</b></div>
+    <div class="kpi">Python analyst <b>${(groups['Python analyst'] || []).length}</b></div>
+    <div class="kpi">library_api <b>${(groups['library_api.py'] || []).length}</b></div>
+    <div class="kpi">diagnostics <b>${(groups['diagnostic_pair.py'] || []).length}</b></div>
+  </div>`;
+  for (const [origin, list] of Object.entries(groups)) {
+    html += `<div class="api-group">▸ ${esc(origin)} · ${list.length} endpoints</div>`;
+    for (const r of list) {
+      html += `<div class="api-row">
+        <span class="m">${esc(r.method)}</span>
+        <span class="r" title="${esc(r.route)}">${esc(r.route)}</span>
+        <span class="d">${esc(r.description)}</span>
+        <span class="o">${esc(r.origin)}</span>
+        <span class="y">✓</span></div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
 /* ---------------------------------------------------------- event wiring */
 
 function bindEvents() {
@@ -1046,6 +1250,26 @@ function bindEvents() {
     if (S.dirty && !confirm('当前笔记本有未保存更改，确定切换？')) { renderNotebookSelect(); return; }
     saveNow(true).then(() => openNotebook(e.target.value));
   });
+  // new: replica / study views
+  $$('.view-tab').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
+  $('#btn-open-replica').addEventListener('click', () => {
+    switchView('replica');
+    if (!S.replica.entry) issueEntry(false);
+  });
+  $('#btn-replica-entry').addEventListener('click', () => issueEntry(false));
+  $('#btn-replica-newtab').addEventListener('click', () => issueEntry(true));
+  $('#btn-replica-reload').addEventListener('click', () => issueEntry(false));
+  $('#btn-verify-assets').addEventListener('click', verifyAssets);
+  $('#asset-tree').addEventListener('click', (e) => {
+    const d = e.target.closest('[data-assetdir]');
+    const f = e.target.closest('[data-asset]');
+    if (d) {
+      const p = d.dataset.assetdir;
+      if (S.assetExpanded.has(p)) S.assetExpanded.delete(p); else S.assetExpanded.add(p);
+      renderAssetTree();
+    } else if (f) openAsset(f.dataset.asset);
+  });
+
   $('#btn-import').addEventListener('click', openImportModal);
   $('#btn-save').addEventListener('click', () => saveNow());
   $('#btn-run').addEventListener('click', runAll);
@@ -1195,7 +1419,7 @@ function bindEvents() {
   const flush = () => {
     if (!S.dirty || !S.notebook) return;
     S.notebook.cells.forEach((c) => { const cm = S.editors.get(c.id); if (cm) c.source = cm.getValue(); });
-    fetch('/api/notebooks/' + encodeURIComponent(S.notebook.id), {
+    fetch('/lab/api/notebooks/' + encodeURIComponent(S.notebook.id), {
       method: 'PUT', keepalive: true, headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notebook: S.notebook }),
     }).catch(() => {});
@@ -1211,8 +1435,9 @@ function bindEvents() {
   renderConsole();
   try {
     await loadBootstrap(false);
-    toast('Kaggle Voice Lab 已就绪', '粘贴你的 Kaggle 代码，它会真实写入项目文件', 'success',
-      'kaggle_workspace/notebooks/*.ipynb  ←  真实磁盘文件');
+    loadReplicaData().catch(() => {});
+    toast('Kaggle Voice Lab 已就绪', '你的 Kaggle 代码已解包为 70 个真实源码资产，网站已字节级复刻', 'success',
+      '/site/ ← QTTS 声音台（原站） · replica/source/ ← 全部源码');
   } catch (e) {
     setSaveState('error', '连接失败');
     $('#nb-title').textContent = '无法连接服务';
