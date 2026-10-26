@@ -1,0 +1,4 @@
+speaker_id,audio_file,sample_rate,label,transcript
+spk_female_01,speaker_female_clear.wav,24000,清晰女声参考音 (Female Clear 24kHz),欢迎使用克隆语音实验与Kaggle模拟器系统。
+spk_male_02,speaker_male_warm.wav,24000,沉稳男声参考音 (Male Warm 24kHz),真实保存完整代码到项目仓库并同步更新。
+spk_biling_03,speaker_bilingual_bright.wav,24000,中英双语明亮音色 (Bilingual Bright 24kHz),Zero-shot voice cloning on Kaggle GPU simulator.

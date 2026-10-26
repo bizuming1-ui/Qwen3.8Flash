@@ -1,0 +1,37 @@
+# Python caches & virtualenvs
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Node / frontend caches
+node_modules/
+
+# Local secrets (never commit tokens/keys)
+.kaggle_secrets.local.json
+.env
+.env.local
+
+# Ephemeral Kaggle runtime outputs & large model weights/audio artifacts
+# (Real source code & notebooks are saved in src/ and notebooks/!)
+kaggle_workspace/.simulator_state.json
+kaggle_workspace/tmp/
+kaggle_workspace/working/*
+!kaggle_workspace/working/.gitkeep
+experiments/artifacts/
+
+# Keep sample dataset & directory placeholders tracked
+!kaggle_workspace/input/sample-voice-dataset/*.wav
+!kaggle_workspace/input/sample-voice-dataset/*.csv
+!kaggle_workspace/input/sample-voice-dataset/*.json
+!**/.gitkeep

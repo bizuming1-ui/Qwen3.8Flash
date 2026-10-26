@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Qwen3.8Flash · Kaggle 克隆语音开发与实验模拟器工作台</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- Top Header -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">🎙️</div>
+      <div>
+        <div class="brand-title">Qwen3.8Flash · Kaggle 克隆语音与实验模拟器工作台</div>
+        <div class="brand-sub">真实写入项目仓库 <span class="mono">/home/user/Qwen3.8Flash</span> · 支持完整 Kaggle 代码解析运行与一键推送 GitHub</div>
+      </div>
+    </div>
+
+    <div class="topbar-controls">
+      <div class="pill" title="切换虚拟 Kaggle GPU 硬件配置">
+        <span>⚡ 硬件配置:</span>
+        <select id="globalAcceleratorSelect" style="width:auto;padding:2px 6px;font-size:12px;">
+          <option value="T4x2">Kaggle GPU T4 x2 (2x 16GB)</option>
+          <option value="P100">Kaggle GPU P100 (1x 16GB)</option>
+          <option value="H100">High-VRAM H100 (1x 80GB)</option>
+          <option value="CPU">Kaggle CPU Only</option>
+        </select>
+      </div>
+
+      <div id="gitHeaderBadge" class="pill synced">
+        <span>🌿 分支: <strong id="headerBranchName">...</strong></span>
+        <span>|</span>
+        <span id="headerSyncState">检测中...</span>
+      </div>
+
+      <button class="btn btn-primary btn-sm" onclick="switchTab('tab-paste')">📋 粘贴完整 Kaggle 代码</button>
+      <button class="btn btn-success btn-sm" onclick="quickSaveAndPushGitHub()">🚀 保存项目并更新 GitHub</button>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs">
+    <button class="tab-btn active" data-tab="tab-paste" onclick="switchTab('tab-paste')">📋 1. 粘贴完整 Kaggle 代码 (真实保存 & GitHub)</button>
+    <button class="tab-btn" data-tab="tab-notebook" onclick="switchTab('tab-notebook')">📓 2. Kaggle Notebook 交互模拟器</button>
+    <button class="tab-btn" data-tab="tab-vclab" onclick="switchTab('tab-vclab')">🎛️ 3. 克隆语音声学与合成实验模拟器</button>
+    <button class="tab-btn" data-tab="tab-train" onclick="switchTab('tab-train')">⚡ 4. Kaggle 显存与微调实验模拟器</button>
+    <button class="tab-btn" data-tab="tab-repo" onclick="switchTab('tab-repo')">📁 5. 项目真实文件树 & GitHub 同步</button>
+  </nav>
+
+  <!-- Main Workspace -->
+  <main class="container">
+
+    <!-- TAB 1: Paste Full Kaggle Code & Real Project Persistence -->
+    <section id="tab-paste" class="tab-pane active">
+      <div class="banner">
+        <strong>真实落盘保障：</strong>您在下方粘贴的完整 Kaggle 代码（支持纯 <span class="mono">.py</span> 脚本、带 <span class="mono"># %%</span> / <span class="mono">!pip</span> / <span class="mono">%%writefile</span> 魔法命令的 Kaggle 单元格代码、或完整 <span class="mono">.ipynb</span> JSON），将<strong>直接写入本项目仓库真实目录</strong>（默认 <span class="mono">src/voice_cloning/kaggle_main.py</span> 与 <span class="mono">notebooks/kaggle_voice_cloning.ipynb</span>），绝不仅停留在浏览器缓存或临时 <span class="mono">/kaggle</span> 目录，并可一键提交推送至 GitHub！
+      </div>
+
+      <div class="grid-2">
+        <!-- Left: Full Code Paste Editor -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📋 完整 Kaggle 克隆语音代码粘贴区</div>
+            <div class="btn-row">
+              <label class="btn btn-sm" style="margin:0;cursor:pointer;">
+                📂 导入本地 .py / .ipynb 文件
+                <input type="file" id="importLocalCodeFile" accept=".py,.ipynb,.txt" style="display:none;" onchange="handleImportCodeFile(event)" />
+              </label>
+              <button class="btn btn-sm" onclick="loadCurrentProjectIntoPasteBox()">🔄 读取当前项目代码</button>
+              <button class="btn btn-danger btn-sm" onclick="clearPasteEditor()">🗑️ 清空以便粘贴</button>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>真实保存到项目 Python 源码路径 (Git 跟踪):</label>
+              <input type="text" id="pastePyPath" value="src/voice_cloning/kaggle_main.py" class="mono" />
+            </div>
+            <div>
+              <label>真实保存到项目 Notebook 路径 (Git 跟踪):</label>
+              <input type="text" id="pasteIpynbPath" value="notebooks/kaggle_voice_cloning.ipynb" class="mono" />
+            </div>
+          </div>
+
+          <label>在此直接粘贴您的完整 Kaggle 代码 (Ctrl+V / Cmd+V):</label>
+          <textarea
+            id="fullKagglePasteInput"
+            class="code-editor"
+            rows="20"
+            placeholder="# 请在此直接粘贴您在 Kaggle 开发的完整克隆语音代码！&#10;# 支持：&#10;# 1) 完整单文件 Python 代码 (import torch, torchaudio, /kaggle/input/..., /kaggle/working/...)&#10;# 2) 包含 !pip install / !nvidia-smi / %%writefile model.py 的 Kaggle Notebook 代码&#10;# 3) 直接粘贴 .ipynb 文件的 JSON 内容"
+          ></textarea>
+
+          <div class="checkbox-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="chkExtractSubmodules" checked />
+              自动提取 <span class="mono">%%writefile</span> 子模块到项目 <span class="mono">src/voice_cloning/</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="chkAutoSplit" checked />
+              自动按单元格标记拆分 Notebook
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="chkAutoPushOnSave" checked />
+              <strong>保存后立即 git commit &amp; push 更新到 GitHub</strong>
+            </label>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label>Git 提交说明 (Commit Message):</label>
+            <input type="text" id="pasteCommitMsg" value="feat: sync complete Kaggle voice cloning code into project" />
+          </div>
+
+          <div class="btn-row">
+            <button id="btnSaveAndSyncMain" class="btn btn-success" onclick="saveFullPasteToProject(false)">
+              💾 真实保存到项目 (并按勾选推送 GitHub)
+            </button>
+            <button class="btn btn-primary" onclick="saveFullPasteToProject(true)">
+              ▶️ 保存到项目并在 Kaggle 模拟器中运行
+            </button>
+            <button class="btn" onclick="previewKagglePaste()">
+              🔍 预解析代码结构与路径映射
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Verification Receipt & GitHub Log -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">✅ 项目真实落盘凭证 (Disk Verification)</div>
+            </div>
+            <div id="diskSaveReceiptBox" class="receipt-list">
+              <div style="color:var(--text-muted);font-size:13px;">
+                等待保存操作... 点击左侧「真实保存到项目」后，此处将显示写入仓库磁盘的真实文件路径、字节大小与 SHA-256 校验值。
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🐙 GitHub 远程同步状态与推送日志</div>
+              <button class="btn btn-sm" onclick="refreshOverview()">刷新状态</button>
+            </div>
+            <div id="pasteGitSummary" style="margin-bottom:10px;font-size:13px;"></div>
+            <div id="pasteGitTerminal" class="terminal-log">等待同步指令...</div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🧭 Kaggle 代码环境智能检测</div>
+            </div>
+            <div id="kaggleDetectBox" style="font-size:12.5px;color:var(--text-muted);">
+              粘贴代码后点击「预解析」或「保存」，自动识别代码中的 <span class="mono">/kaggle/input</span>、<span class="mono">/kaggle/working</span>、<span class="mono">!pip</span>、CUDA 与 <span class="mono">%%writefile</span> 模块。
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Interactive Multi-Cell Kaggle Notebook Simulator -->
+    <section id="tab-notebook" class="tab-pane">
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;">
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="runAllNotebookCells()">▶️ 全部运行 (自动落盘项目)</button>
+            <button class="btn" onclick="addNotebookCell('code')">➕ 新增代码单元格</button>
+            <button class="btn" onclick="addNotebookCell('markdown')">📝 新增 Markdown</button>
+            <button class="btn" onclick="resetKaggleKernel()">🔄 重置 Python 内核</button>
+            <button class="btn btn-success" onclick="saveNotebookCellsToRepo(true)">💾 保存到项目 &amp; 推送 GitHub</button>
+          </div>
+          <div class="btn-row">
+            <label class="btn btn-sm" style="margin:0;cursor:pointer;">
+              📤 上传音频/数据到 /kaggle/input
+              <input type="file" id="uploadKaggleInputBtn" style="display:none;" onchange="uploadToKaggleInput(event)" />
+            </label>
+            <button class="btn btn-sm" onclick="promptSetKaggleSecret()">🔑 配置 kaggle_secrets</button>
+          </div>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:18px;">
+          <span>📂 绑定 Python 文件: <strong class="mono" id="nbBoundPy">src/voice_cloning/kaggle_main.py</strong></span>
+          <span>📓 绑定 Notebook 文件: <strong class="mono" id="nbBoundIpynb">notebooks/kaggle_voice_cloning.ipynb</strong></span>
+          <span>🔗 <span class="mono">/kaggle</span> 软链状态: <strong id="nbSymlinkBadge">已就绪</strong></span>
+          <span>🛡️ Virtual PyTorch + Torchaudio + CUDA: <strong>已启用</strong></span>
+        </div>
+      </div>
+
+      <div id="notebookCellsContainer"></div>
+    </section>
+
+    <!-- TAB 3: Voice Cloning Acoustic & Synthesis Simulator -->
+    <section id="tab-vclab" class="tab-pane">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🎛️ 克隆语音声学分析与零样本合成模拟器</div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>选择参考说话人音频 (<span class="mono">/kaggle/input/...</span>):</label>
+              <select id="vcRefAudioSelect" onchange="updateRefAudioPlayer()"></select>
+            </div>
+            <div>
+              <label>上传自定义参考音色 (.wav):</label>
+              <input type="file" accept=".wav,.flac,.ogg,.mp3" onchange="uploadCustomRefWav(event)" />
+            </div>
+          </div>
+
+          <div style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
+            <audio id="vcRefAudioPlayer" controls></audio>
+            <button class="btn btn-sm" onclick="runRefVoiceAnalysis()">🔬 提取声纹 / F0 基频 / Mel 特征</button>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label>选择克隆语音模型架构:</label>
+            <select id="vcArchSelect"></select>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label>目标克隆合成文本 (支持中文 / 英文混合韵律建模):</label>
+            <textarea id="vcTargetText" rows="3">你好！这是在 Qwen3.8Flash 项目内置语音克隆实验模拟器中生成的测试语音，完整代码已真实保存到仓库并同步至 GitHub。</textarea>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>语速倍率 (Speed: <span id="lblSpeed">1.0</span>x)</label>
+              <input type="number" id="vcSpeed" value="1.0" step="0.1" min="0.5" max="2.0" oninput="document.getElementById('lblSpeed').textContent=this.value" />
+            </div>
+            <div>
+              <label>基频变调 (半音 Semitones)</label>
+              <input type="number" id="vcPitchShift" value="0.0" step="0.5" min="-8" max="8" />
+            </div>
+            <div>
+              <label>采样温度 (Temperature)</label>
+              <input type="number" id="vcTemp" value="0.7" step="0.05" min="0.1" max="1.5" />
+            </div>
+            <div>
+              <label>Flow ODE 步数 (NFE)</label>
+              <input type="number" id="vcNfe" value="24" step="4" min="4" max="64" />
+            </div>
+          </div>
+
+          <button id="btnRunVcSim" class="btn btn-purple" style="width:100%;padding:11px;" onclick="runVoiceCloneSim()">
+            🚀 运行端到端语音克隆合成实验 (并记录到 experiments/registry.json)
+          </button>
+
+          <div id="vcStagesBox" style="margin-top:14px;font-size:12.5px;color:var(--text-muted);"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📊 克隆音频输出、客观声学指标与梅尔频谱对比</div>
+          </div>
+
+          <div id="vcResultArea">
+            <div style="color:var(--text-muted);padding:18px 0;">
+              点击左侧「运行端到端语音克隆合成实验」或「提取声纹特征」，此处将展示可播放的克隆音频、SECS 音色余弦相似度、MCD 梅尔倒谱失真、张量维度追踪表以及 80-Band Log-Mel 频谱图。
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: Kaggle GPU VRAM & Fine-Tuning Experiment Simulator -->
+    <section id="tab-train" class="tab-pane">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">⚡ Kaggle GPU 显存预算与训练/微调收敛模拟器</div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>语音克隆模型架构:</label>
+              <select id="trArchSelect"></select>
+            </div>
+            <div>
+              <label>目标 Kaggle 硬件加速器:</label>
+              <select id="trAccelSelect">
+                <option value="T4x2">Kaggle GPU T4 x2 (2x 16GB)</option>
+                <option value="P100">Kaggle GPU P100 (1x 16GB)</option>
+                <option value="H100">High-VRAM H100 (1x 80GB)</option>
+                <option value="CPU">Kaggle CPU Only</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>微调模式 (Fine-Tune):</label>
+              <select id="trMode">
+                <option value="lora">LoRA 轻量音色适配 (推荐 Kaggle T4)</option>
+                <option value="full">Full 全量参数微调</option>
+              </select>
+            </div>
+            <div>
+              <label>混合精度 (Precision):</label>
+              <select id="trPrecision">
+                <option value="fp16">fp16 (Tesla T4 / P100 最佳)</option>
+                <option value="bf16">bf16 (Ampere/Hopper 架构)</option>
+                <option value="fp32">fp32 单精度</option>
+              </select>
+            </div>
+            <div>
+              <label>Batch Size:</label>
+              <input type="number" id="trBatch" value="4" min="1" max="64" />
+            </div>
+            <div>
+              <label>梯度累积 (Grad Accum):</label>
+              <input type="number" id="trAccum" value="4" min="1" max="32" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label>单条最大音频时长 (秒):</label>
+              <input type="number" id="trMaxSec" value="10" min="2" max="30" />
+            </div>
+            <div>
+              <label>训练语料总时长 (小时):</label>
+              <input type="number" id="trHours" value="2.0" step="0.5" min="0.1" max="200" />
+            </div>
+            <div>
+              <label>学习率 (Learning Rate):</label>
+              <input type="text" id="trLr" value="0.0001" />
+            </div>
+            <div>
+              <label>训练轮数 (Epochs):</label>
+              <input type="number" id="trEpochs" value="12" min="2" max="100" />
+            </div>
+          </div>
+
+          <button class="btn btn-primary" style="width:100%;padding:10px;" onclick="runTrainingSim()">
+            📈 模拟显存占用、Kaggle 30h 配额消耗与 Loss 收敛曲线
+          </button>
+
+          <div style="margin-top:18px;">
+            <div class="card-header" style="margin-bottom:8px;">
+              <div class="card-title" style="font-size:13.5px;">🗂️ 本地实验追踪记录 (<span class="mono">experiments/registry.json</span>)</div>
+              <button class="btn btn-sm" onclick="loadExperimentsList()">刷新记录</button>
+            </div>
+            <div id="experimentsTableBox" style="max-height:240px;overflow-y:auto;"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📊 Kaggle 显存诊断报告与模拟收敛曲线</div>
+          </div>
+          <div id="trResultArea" style="color:var(--text-muted);">
+            配置左侧训练超参数后点击「模拟显存占用」，即可在真正消耗 Kaggle 每周 30 小时 GPU 配额之前，提前排查 OOM 显存溢出风险并评估收敛曲线。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: Real Project File Explorer & GitHub Control Center -->
+    <section id="tab-repo" class="tab-pane">
+      <div class="grid-explorer">
+        <!-- Col 1: File Tree -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📁 项目真实目录树</div>
+            <div class="btn-row">
+              <button class="btn btn-sm" onclick="promptNewProjectFile()">➕ 新建</button>
+              <button class="btn btn-sm" onclick="loadProjectFileTree()">刷新</button>
+            </div>
+          </div>
+          <div id="repoFileTree" class="file-tree-list"></div>
+        </div>
+
+        <!-- Col 2: File Viewer / Editor -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📝 文件编辑: <span id="activeEditorPath" class="mono" style="color:#38bdf8;">src/voice_cloning/kaggle_main.py</span></div>
+            <div class="btn-row">
+              <button class="btn btn-primary btn-sm" onclick="saveActiveExplorerFile(false)">💾 保存到磁盘</button>
+              <button class="btn btn-success btn-sm" onclick="saveActiveExplorerFile(true)">🚀 保存并推送 GitHub</button>
+            </div>
+          </div>
+          <textarea id="repoFileEditor" class="code-editor" rows="26"></textarea>
+        </div>
+
+        <!-- Col 3: Git & GitHub Panel -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🐙 Git &amp; GitHub 同步中心</div>
+            <button class="btn btn-sm" onclick="refreshGitPanel()">刷新</button>
+          </div>
+
+          <div id="gitDetailBox" style="font-size:12.5px;margin-bottom:12px;"></div>
+
+          <div style="margin-bottom:10px;">
+            <label>Commit Message:</label>
+            <input type="text" id="gitPanelMsg" value="feat: update voice cloning project files" />
+          </div>
+          <button class="btn btn-success" style="width:100%;margin-bottom:14px;" onclick="triggerGitSyncFromPanel()">
+            🚀 一键 Commit &amp; Push 到 GitHub
+          </button>
+
+          <label>Git 执行回执:</label>
+          <div id="gitPanelTerminal" class="terminal-log" style="margin-bottom:14px;max-height:140px;">就绪。</div>
+
+          <label>最近 GitHub 提交历史 (<span class="mono">git log</span>):</label>
+          <div id="gitCommitsList" class="receipt-list" style="max-height:260px;overflow-y:auto;"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
