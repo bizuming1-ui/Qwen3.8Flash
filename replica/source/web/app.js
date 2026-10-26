@@ -464,7 +464,8 @@ registerProcessor('qtts-ring', QttsRing);
     renderRecordings();
     $.length = 0;
     r("files").value = "";
-    r("dskey").value = "";
+    const keyInput = document.getElementById("dskey");
+    if (keyInput) keyInput.value = "";
     r("text").value = "";
     if (r("quality-seed")) r("quality-seed").value = "";
     if (r("quality-capture")) r("quality-capture").checked = false;
@@ -892,7 +893,7 @@ registerProcessor('qtts-ring', QttsRing);
         const receipt=await response.json();if(!receipt.merged)throw new Error("diagnostic receipt not merged");
       }});
     let e = r("mode").value,
-      s = r("dskey").value.trim();
+      s = (document.getElementById("dskey")?.value || "").trim();
     // API keys stay in memory only; never persist them to browser storage.
     let i = { "Content-Type": "application/json" };
     s && (i["X-DeepSeek-Key"] = s);
@@ -1193,7 +1194,7 @@ registerProcessor('qtts-ring', QttsRing);
           "\u5019\u9009\u951A\u70B9(\u6309\u7EFC\u5408\u5206\u6392\u5E8F,\u53EF\u5207\u6362)",
         ),
       );
-      (t.candidates.forEach((u, g) => {
+      t.candidates.forEach((u, g) => {
         let f = o(
           "button",
           { class: "cand" + (g === (t.anchor_candidate ?? 0) ? " on" : "") },
@@ -1212,8 +1213,20 @@ registerProcessor('qtts-ring', QttsRing);
               }));
         }),
           c.append(f));
-      }),
-        s.append(c));
+      });
+      const candidateDisclosure = o("details", { class: "candidate-details" },
+        o("summary", {}, "高级：内部锚点候选（不是完整转写）"), c);
+      s.append(candidateDisclosure);
+    }
+    if (typeof t.full_transcript === "string" && t.full_transcript) {
+      const full = o("textarea", { rows: "6", class: "reftext full-transcript", "aria-label": "完整参考语音转写（全文，不分段显示）" });
+      full.value = t.full_transcript; full.readOnly = true;
+      const copyFull = o("button", { class: "sm", type: "button" }, "复制完整转写");
+      copyFull.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(full.value); n.textContent = "完整参考转写已复制；显示为全文，内部时间戳仅用于对齐。"; }
+        catch { full.focus(); full.select(); n.textContent = "浏览器阻止自动复制；全文已选中，请按 Ctrl/⌘+C。"; }
+      });
+      s.append(o("label", {}, "完整参考语音转写（全文显示）"), full, copyFull);
     }
     if (t.quality?.stage_ms) {
       s.append(o("details", {}, o("summary", {}, `创建阶段耗时 · ${t.quality.build_s ?? "?"} s（不是训练）`),
@@ -1884,7 +1897,7 @@ registerProcessor('qtts-ring', QttsRing);
       for (const key of ["qtts_dskey", "qtts_base", "qtts_access_token"])
         localStorage.removeItem(key);
     } catch {}
-    ((r("dskey").value = ""), (r("baseurl").value = location.origin));
+    ((document.getElementById("dskey") && (document.getElementById("dskey").value = "")), (r("baseurl").value = location.origin));
     r("access-form").addEventListener("submit", unlockAccess);
     r("btn-lock").addEventListener("click", () => endPrivateSession());
     r("btn-reference-options").addEventListener("click", () => {

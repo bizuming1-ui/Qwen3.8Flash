@@ -93,6 +93,9 @@ function buildProfile({ name, language, ref_text, anchor_seconds, calibrate, fil
     pause_clause_ms: 180, pause_sentence_ms: 320, pause_para_ms: 480,
     breath_level_db: -32, breath_files: [],
     ref_text: String(ref_text || candidates[0]?.text || '').slice(0, 20000),
+    // Local simulator never claims to run Whisper; it nevertheless mirrors the
+    // one-field full-transcript contract (real Kaggle worker fills this from ASR).
+    full_transcript: String(ref_text || '（本地模拟转写全文；未运行真实 ASR）').slice(0, 200000),
     anchor: saved[0]?.name || 'reference.wav',
     anchor_candidate: 0,
     candidates,

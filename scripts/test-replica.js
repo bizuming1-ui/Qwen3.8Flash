@@ -223,6 +223,9 @@ function multipart(fields, files) {
   check('profile job completes with profile id', job.state === 'done' && !!job.profile, job.state + ' ' + (job.profile || ''));
   const profiles = (await req('/api/profiles')).json.profiles;
   check('new profile persisted', profiles.some((p) => p.id === job.profile));
+  const profileDetail = (await req(`/api/prep/profiles/${job.profile}`)).json;
+  check('full reference transcript is exposed as one string', profileDetail?.full_transcript === '测试参考文本');
+  check('local profile remains explicitly simulated', profileDetail?.simulated === true);
   check('POST /api/profiles/activate', (await req('/api/profiles/activate', { method: 'POST', body: { id: job.profile } })).status === 200);
   check('POST /api/prep/profiles/{id}/text', (await req(`/api/prep/profiles/${job.profile}/text`, { method: 'POST', body: { ref_text: '新文本' } })).status === 200);
 

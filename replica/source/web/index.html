@@ -65,10 +65,9 @@ dialog{width:min(1040px,calc(100vw - 24px));max-height:calc(100dvh - 24px);paddi
         <h2 id="speak-title">语音对话</h2>
         <div class="scroll" tabindex="0" role="region" aria-label="对话配置">
           <div class="grid">
-            <div><label for="mode">模式（聊天朗读模型回复；直接朗读才读输入原文）</label><select id="mode"><option value="chat">DeepSeek → 克隆语音</option><option value="read">直接朗读文字</option></select></div>
+            <div><label for="mode">模式（聊天朗读模型回复；直接朗读才读输入原文）</label><select id="mode"><option value="chat">模型回复 → 克隆语音（无需手动输入密钥）</option><option value="read">直接朗读文字</option></select></div>
             <div><label for="profile">声音档案</label><select id="profile"></select></div>
             <div><label for="lang">语言</label><select id="lang"><option value="auto">自动</option><option>Chinese</option><option>English</option><option>Japanese</option><option>Korean</option></select></div>
-            <div><label for="dskey">DeepSeek Key（可用环境变量）</label><input id="dskey" type="password" placeholder="sk-..." autocomplete="off"></div>
           </div>
         <label for="quality-policy">音频路径 · 对照候选，尚未证实真人音质改善</label>
         <select id="quality-policy"><option value="sentence-linear">整句对照：一次声码器解码＋固定线性增益（等待整句，可能更晚出音）</option><option value="legacy-stream">原低延迟：滚动声码器＋原AGC/软限幅</option><option value="sentence-agc">仅声码器对照：整句＋原AGC（等待整句）</option><option value="sentence-agc-headroom">B路径整句AGC＋软峰值保护：上限约−1.31 dBFS（新实验，等待整句）</option><option value="windowed-linear">仅音量对照：原滚窗＋固定线性增益（仍等待整句）</option></select>

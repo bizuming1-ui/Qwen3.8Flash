@@ -143,8 +143,8 @@
     },
     {
       "path": "py/analyst.py",
-      "bytes": 63656,
-      "sha256": "d68b518197be203b591e488af6acad4c17070f2f8df3b55578e2534608c2ee3d",
+      "bytes": 64401,
+      "sha256": "21fc6854faa37826b07392db59150a68b38c4b7f340929a7e2d5f5cfa5211f30",
       "verified": true,
       "group": "py"
     },
@@ -465,8 +465,8 @@
     },
     {
       "path": "web/app.js",
-      "bytes": 84727,
-      "sha256": "cadb15f62dfba3b1fde68593deb4e14d6cdedc9735a4b354f5af8cb40f59d078",
+      "bytes": 85905,
+      "sha256": "28cbee0d4d172a64113c490f04de7008f5a576e3fb37e383f0d2bf7a0f097406",
       "verified": true,
       "group": "web"
     },
@@ -479,8 +479,8 @@
     },
     {
       "path": "web/index.html",
-      "bytes": 28104,
-      "sha256": "abd5913d0b5886f5692e0f28dd1399b2bcc2d68ba9c752377a132cfd39fe5655",
+      "bytes": 27977,
+      "sha256": "b58d7e02440cbc867635f7ab876dd1c34b411b9c1f21514f156c96aa6d3b3b37",
       "verified": true,
       "group": "web"
     },
@@ -493,17 +493,17 @@
     }
   ],
   "verified": 70,
-  "total_bytes": 723119,
+  "total_bytes": 724915,
   "web": [
     {
       "file": "index.html",
-      "bytes": 28104,
-      "sha256": "abd5913d0b5886f5692e0f28dd1399b2bcc2d68ba9c752377a132cfd39fe5655"
+      "bytes": 27977,
+      "sha256": "b58d7e02440cbc867635f7ab876dd1c34b411b9c1f21514f156c96aa6d3b3b37"
     },
     {
       "file": "app.js",
-      "bytes": 84727,
-      "sha256": "cadb15f62dfba3b1fde68593deb4e14d6cdedc9735a4b354f5af8cb40f59d078"
+      "bytes": 85905,
+      "sha256": "28cbee0d4d172a64113c490f04de7008f5a576e3fb37e383f0d2bf7a0f097406"
     },
     {
       "file": "recorder.js",

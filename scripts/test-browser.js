@@ -98,6 +98,8 @@ async function labTest() {
   const dom = new JSDOM(html, { url: BASE + '/', runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole: virtualConsole(errors) });
   const w = dom.window;
   commonStubs(w, errors);
+  let copiedKaggle = '';
+  Object.defineProperty(w.navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => { copiedKaggle = text; } } });
   w.CodeMirror = cmStub(w);
   w.fetch = (p, o) => fetch(new URL(p, BASE), o);
   w.EventSource = class { constructor(u) { this.url = u; } close() {} addEventListener() {} };
@@ -110,6 +112,14 @@ async function labTest() {
   check('[lab] replica view renders status', /SHA-256/.test(d.querySelector('#replica-status').textContent));
   d.querySelector('#btn-replica-entry').click(); await wait(600);
   check('[lab] private entry sets iframe URL', /qtts-entry=/.test(d.querySelector('#replica-frame').src));
+  check('[lab] Kaggle copy button needs no credential input', !!d.querySelector('#btn-copy-kaggle') && !d.querySelector('#replica-frame').src.includes('key='));
+  d.querySelector('#btn-copy-kaggle').click(); await wait(900);
+  const expectedKaggle = fs.readFileSync(path.join(ROOT, 'kaggle_workspace', 'notebooks', 'kaggle.py'), 'utf8');
+  check('[lab] copy action reads full saved Kaggle script', copiedKaggle === expectedKaggle && copiedKaggle.length > 300000, `${copiedKaggle.length} chars`);
+  w.navigator.clipboard.writeText = async () => { throw new Error('clipboard denied'); };
+  d.querySelector('#btn-copy-kaggle').click(); await wait(700);
+  check('[lab] clipboard denial exposes full-text and download fallback',
+    !d.querySelector('#modal-copy-kaggle').classList.contains('hidden') && d.querySelector('#copy-kaggle-content').value === expectedKaggle && /download=1/.test(d.querySelector('#btn-download-kaggle').href));
   d.querySelector('[data-view="assets"]').click(); await wait(500);
   check('[lab] asset tree has 70 files', (d.querySelector('#asset-count').textContent) === '70');
   const first = d.querySelector('#asset-tree [data-asset]');
@@ -164,6 +174,7 @@ async function siteTest() {
   check('[site] original app.js auto-unlocks', d.body.classList.contains('is-unlocked'), d.querySelector('#access-status').textContent);
   check('[site] gateway connected', /已连接/.test(d.querySelector('#conn').textContent));
   check('[site] profiles loaded', d.querySelectorAll('#profile option').length > 0);
+  check('[site] DeepSeek key field removed', !d.querySelector('#dskey'));
   // Chat mode is the only mode in which the Go gateway pushes TEXT frames; in
   // read mode #llmout is intentionally empty (text only feeds the segmenter).
   d.querySelector('#mode').value = 'chat';
@@ -176,7 +187,22 @@ async function siteTest() {
   check('[site] timeline rendered', d.querySelectorAll('#timeline .kv').length > 3);
   d.querySelector('#nav-mon').click(); await wait(1600);
   check('[site] diagnostics dialog works', d.querySelector('#diagnostics').open === true && d.querySelectorAll('#workers .card').length === 2);
-  d.querySelector('#nav-lab').click(); await wait(400);
+  const form = new FormData();
+  form.set('name', '全文显示测试'); form.set('language', 'Chinese'); form.set('ref_text', '完整转写：这是一段不拆分展示的中文参考文本。');
+  form.set('anchor_seconds', '16'); form.set('calibrate', '0');
+  form.append('files', new Blob([Buffer.alloc(256)], { type: 'audio/wav' }), 'ref.wav');
+  const createRes = await wrappedFetch(BASE + '/api/prep/profiles', { method: 'POST', body: form });
+  const createJob = await createRes.json();
+  let profileJob;
+  for (let i = 0; i < 8; i++) {
+    await wait(800);
+    profileJob = await (await wrappedFetch(BASE + '/api/prep/jobs/' + createJob.job)).json();
+    if (profileJob.state !== 'running') break;
+  }
+  check('[site] test reference audio creates simulated profile', profileJob?.state === 'done' && !!profileJob.profile);
+  d.querySelector('#nav-lab').click(); await wait(900);
+  const transcriptField = [...d.querySelectorAll('#profiles .full-transcript')].find((el) => el.value.includes('完整转写：这是一段'));
+  check('[site] profile displays full transcript in one read-only field', !!transcriptField?.readOnly);
   d.querySelector('#btn-libraries').click(); await wait(1300);
   check('[site] library dialog loads', d.querySelectorAll('#library-select option').length > 0);
   check('[site] no JS errors', errors.length === 0, errors.slice(0, 2).join(' | '));

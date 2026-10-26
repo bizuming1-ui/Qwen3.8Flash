@@ -1131,8 +1131,63 @@ function renderReplicaStatus() {
     兼容接口 ${S.replica.endpoints || 38} 个 ·
     会话 ${s.auth?.activeSessions ?? 0} 个 ·
     档案 ${s.profiles ?? 0} · 声音库 ${s.libraries ?? 0} · 训练快照 ${s.trainingDatasets ?? 0} · 运行 ${s.runs ?? 0} 次
-    ${e ? `<br><b>私有入口</b>：<code>${esc(e.grant)}</code>（${e.expiresIn}s 内有效，一次性）— 网站已通过 <code>/api/session/exchange</code> 换取 HttpOnly 会话。` : ''}
-    <br><b>手动解锁备用口令</b>：<code>${esc(e?.bearer || s.accessToken || '—')}</code>（也可粘贴到网站「高级：手动口令入口」）。`;
+    ${e ? `<br><b>私有入口</b>：一次性链接已自动兑换为 HttpOnly 会话；无需输入或复制任何密钥。` : '<br>进入后由一次性私有入口自动建立会话；无需输入密钥。'}`;
+}
+
+async function copyFullKaggleCode() {
+  const status = $('#copy-kaggle-status');
+  const box = $('#copy-kaggle-content');
+  const button = $('#btn-copy-kaggle');
+  if (button) button.disabled = true;
+  if (status) status.textContent = '正在读取项目内完整 Kaggle 单 cell 文件…';
+  try {
+    const file = await api('/file?path=' + encodeURIComponent('notebooks/kaggle.py'));
+    const code = String(file.content || '');
+    if (!code.trim() || !code.includes('FILES = {') || code.length < 100000) {
+      throw new Error('项目中的 Kaggle 文件不完整；没有复制部分代码。');
+    }
+    if (box) box.value = code;
+    if (status) status.textContent = `${code.length.toLocaleString()} 字符 · ${new Blob([code]).size.toLocaleString()} 字节 · 完整单 cell 脚本`;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('clipboard API unavailable');
+      await navigator.clipboard.writeText(code);
+      toast('完整 Kaggle 代码已复制', `${code.length.toLocaleString()} 字符，可直接粘贴到 Kaggle 的一个 Python cell 后运行。`, 'success', '来源：项目内 kaggle.py');
+      clog('sys', `已复制仓库中的完整 Kaggle 单 cell 脚本 (${code.length} chars)`);
+    } catch {
+      showModal('modal-copy-kaggle');
+      if (box) { box.focus(); box.select(); }
+      if (status) status.textContent += ' · 自动复制被浏览器拦截，请在文本框中 Ctrl/⌘+A 后复制；也可下载文件。';
+      toast('完整代码已载入', '请在弹窗中全选复制，或下载 kaggle.py。', 'info');
+    }
+  } catch (e) {
+    if (status) status.textContent = '读取失败：' + e.message;
+    toast('复制 Kaggle 代码失败', e.message, 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+/** Keep the byte-identical upstream website intact while tailoring this local
+ * simulator's iframe: local simulated chat needs no user-provided API key, and
+ * the one-use same-origin grant already provides a session (no bearer paste).
+ */
+function concealLocalSecretFields() {
+  const frame = $('#replica-frame');
+  try {
+    const d = frame?.contentDocument;
+    if (!d) return;
+    const key = d.querySelector('#dskey');
+    if (key) {
+      const row = key.closest('.grid > div') || key.parentElement;
+      if (row) row.hidden = true;
+      key.value = '';
+      key.disabled = true;
+    }
+    const chat = d.querySelector('#mode option[value="chat"]');
+    if (chat) chat.textContent = '模型回复 → 克隆语音（无需输入密钥）';
+    const manual = d.querySelector('#manual-access');
+    if (manual) manual.hidden = true;
+  } catch { /* opaque iframe: leave upstream bytes untouched */ }
 }
 
 async function issueEntry(openNewTab = false) {
@@ -1357,7 +1412,20 @@ function bindEvents() {
   $('#btn-replica-entry').addEventListener('click', () => issueEntry(false));
   $('#btn-replica-newtab').addEventListener('click', () => issueEntry(true));
   $('#btn-replica-reload').addEventListener('click', () => issueEntry(false));
+  $('#replica-frame').addEventListener('load', concealLocalSecretFields);
   $('#btn-verify-assets').addEventListener('click', verifyAssets);
+  $('#btn-copy-kaggle').addEventListener('click', copyFullKaggleCode);
+  $('#btn-copy-kaggle-again').addEventListener('click', async () => {
+    const box = $('#copy-kaggle-content');
+    try {
+      await navigator.clipboard.writeText(box.value);
+      toast('完整 Kaggle 代码已复制', `${box.value.length.toLocaleString()} 字符`, 'success');
+      $('#modal-copy-kaggle').classList.add('hidden');
+    } catch {
+      box.focus(); box.select();
+      toast('请手动复制', '文本已全选；按 Ctrl/⌘+C。', 'info');
+    }
+  });
   $('#btn-seg-run').addEventListener('click', runSegProbe);
   $('#btn-dsp-run').addEventListener('click', runDspProbe);
   $('#btn-frame-run').addEventListener('click', runFrameProbe);

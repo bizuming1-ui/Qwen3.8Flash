@@ -865,10 +865,20 @@ def build_profile(job: dict, name: str, files: list[tuple[str, bytes]], language
         # ---- 5. profile json ----------------------------------------------------------------
         anchor_name = "anchor_0.wav"
         shutil.copy(d / "cand0.wav", d / anchor_name)
+        # Keep the complete ASR transcript as one user-facing string. Timestamped
+        # clips remain internal alignment metadata; the UI must not present them
+        # as a user-facing transcript split.
+        transcript_parts = [str(c.get("text", "")).strip() for c in sorted(clips, key=lambda item: (item["f"], item["start"])) if str(c.get("text", "")).strip()]
+        full_transcript = ""
+        for part in transcript_parts:
+            if full_transcript and full_transcript[-1:].isascii() and part[:1].isascii() and (full_transcript[-1:].isalnum() or full_transcript[-1:] in ".!?;:") and part[:1].isalnum():
+                full_transcript += " "
+            full_transcript += part
         prof = {
             "id": pid, "name": name, "language": LANG_NAME.get(ref_lang, "Auto"), "lang_code": ref_lang,
             "created": dt.datetime.now().isoformat(timespec="seconds"),
             "anchor": anchor_name, "anchor_candidate": 0, "ref_text": cand_meta[0]["text"],
+            "full_transcript": full_transcript,
             "candidates": cand_meta, "target_rms_dbfs": target_db, "reference_normalize_dbfs": TARGET_DBFS, "units_per_sec": round(ups, 3),
             "pause_clause_ms": pc, "pause_sentence_ms": ps, "pause_para_ms": int(ps * 1.65),
             "breath_files": breath_files, "breath_level_db": round(breath_db, 1),

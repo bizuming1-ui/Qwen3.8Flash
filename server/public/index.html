@@ -42,6 +42,7 @@
 
       <div class="toolbar">
         <button class="btn btn-accent" id="btn-open-replica" title="打开原站复刻">🌐 复刻网站</button>
+        <button class="btn btn-primary" id="btn-copy-kaggle" title="复制完整单 cell Kaggle 代码到剪贴板">📋 复制 Kaggle</button>
         <button class="btn btn-primary" id="btn-import" title="Ctrl/⌘ + I">⬇ 导入完整 Kaggle 代码</button>
         <button class="btn" id="btn-save" title="Ctrl/⌘ + S">💾 保存</button>
         <button class="btn btn-accent" id="btn-run" title="模拟运行全部 cell">▶ 模拟运行</button>
@@ -410,6 +411,14 @@
         </div>
       </div>
       <div class="modal-foot"><button class="btn btn-ghost" data-close>关闭</button><a id="git-repo-link" class="btn btn-ghost" target="_blank" rel="noopener">↗ 打开 GitHub 仓库</a></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="modal-copy-kaggle">
+    <div class="modal modal-lg">
+      <div class="modal-head"><div><h2>📋 完整 Kaggle 单 cell 代码</h2><p>已读取仓库中真实保存的 <code>kaggle_workspace/notebooks/kaggle.py</code>。如果剪贴板权限被浏览器阻止，可在下方全选复制。</p></div><button class="modal-close" data-close>✕</button></div>
+      <div class="modal-body"><textarea id="copy-kaggle-content" class="out-text" rows="18" spellcheck="false" readonly></textarea><p class="tiny-note" id="copy-kaggle-status"></p></div>
+      <div class="modal-foot"><button class="btn btn-ghost" data-close>关闭</button><button class="btn btn-primary" id="btn-copy-kaggle-again">📋 再试复制</button><a class="btn" id="btn-download-kaggle" href="/lab/api/file?path=notebooks%2Fkaggle.py&amp;download=1" download="kaggle.py">⬇ 下载 kaggle.py</a></div>
     </div>
   </div>
 

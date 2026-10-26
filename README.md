@@ -28,6 +28,8 @@
 - ✅ 每次编辑自动保存（默认 1.2 秒）到仓库磁盘，**不是 localStorage，不是只存在 Kaggle**
 - ✅ 一键 `git add -A && git commit && git push origin HEAD`，真实更新 GitHub
 - ✅ 提供 Kaggle 笔记本单元格编辑、环境/数据集/训练实验三类模拟器
+- ✅ 「复制 Kaggle」会从仓库读取并复制完整单 cell `kaggle.py`（剪贴板受限时可全选或下载）；网站复刻不要求手填 DeepSeek API key
+- ✅ 参考音频处理结果提供一个完整转写文本框；模拟器生成的占位文本明确标示为模拟，内部锚点片段默认收起
 - ⚠️ 但**不会**假装真的训练模型：所有 loss、显存、epoch 日志都明确标注 `SIMULATED`
 
 ---
@@ -159,7 +161,7 @@ Qwen3.8Flash/
   `kaggle_lab.simulatedOutputs = true`。
 - `ENABLE_LOCAL_PYTHON=1` 才会启用「真实本地 Python 执行」接口，默认关闭。
   即使开启也**只适合无副作用的小片段**（15 秒超时、独立工作目录、无模型权重）。
-- 真实训练请在 Kaggle 上传 `.ipynb` 后开启 GPU；本系统负责**保存、版本管理与可视化**。
+- 「复制 Kaggle」只负责复制仓库中的完整单 cell 脚本，不代表训练已启动或成功。本次实现尚未把“录音/上传 → ASR 全文 → 一键真实训练”接成 Kaggle 端到端流程；CPU + 双 T4 实际训练也尚未在 Kaggle 验证。训练代码/模型质量不能用本地模拟器的结果代替。
 
 ---
 
