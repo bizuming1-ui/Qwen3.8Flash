@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>界面1</title>
+  <link rel="stylesheet" href="/fonts/index.css">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="interface" aria-label="界面1">
+    <div class="qr-box">
+      <span class="qr-box__label">二维码</span>
+      <img id="share-qr" class="qr-box__image" alt="扫描二维码，在其他设备打开界面1" aria-describedby="share-address" width="144" height="144">
+      <span id="share-address" class="sr-only"></span>
+    </div>
+
+    <form id="production-form" class="production-form" autocomplete="off" novalidate>
+      <div class="field field--order">
+        <label for="production-order">生产单</label>
+        <input id="production-order" name="productionOrder" type="text" maxlength="256" spellcheck="false" disabled>
+      </div>
+
+      <div class="field field--product">
+        <label for="product">产品</label>
+        <input id="product" name="product" type="text" maxlength="256" spellcheck="false" disabled>
+      </div>
+
+      <div class="field field--total">
+        <label for="production-total">生产总数</label>
+        <input id="production-total" name="productionTotal" type="text" inputmode="decimal" maxlength="256" spellcheck="false" disabled>
+      </div>
+
+      <div class="field field--current">
+        <label for="current-production">当前生产数</label>
+        <input id="current-production" name="currentProduction" type="text" inputmode="decimal" maxlength="256" spellcheck="false" disabled>
+      </div>
+
+      <div class="field field--now">
+        <label for="now">现在</label>
+        <input id="now" name="now" type="text" inputmode="decimal" maxlength="256" spellcheck="false" aria-describedby="status" disabled>
+      </div>
+
+      <button id="confirm" class="confirm" type="submit" disabled>确认</button>
+    </form>
+
+    <p id="status" class="status" role="status" aria-live="polite" hidden></p>
+  </main>
+</body>
+</html>
