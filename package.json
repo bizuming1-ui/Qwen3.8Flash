@@ -1,0 +1,26 @@
+{
+  "name": "interface-1",
+  "version": "1.0.0",
+  "private": true,
+  "description": "可通过二维码共享、实时同步的生产界面",
+  "type": "module",
+  "engines": {
+    "node": ">=22.17.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test tests/server.test.js",
+    "test:browser": "node --test tests/browser.test.js",
+    "test:all": "npm test && npm run test:browser"
+  },
+  "dependencies": {
+    "@fontsource-variable/noto-serif-sc": "5.3.1",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@sparticuz/chromium": "153.0.0",
+    "jsqr": "1.4.0",
+    "playwright-core": "1.64.1",
+    "pngjs": "7.0.0"
+  }
+}
