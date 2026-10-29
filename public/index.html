@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>界面1</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="interface" aria-label="界面1">
+    <div class="status" id="status" role="status" aria-live="polite">正在连接…</div>
+    <div class="qr-box">
+      <span>二维码</span>
+      <img id="qr" alt="扫描二维码打开此界面">
+    </div>
+    <form id="form" autocomplete="off">
+      <div class="field order"><label for="order">生产单</label><input id="order" maxlength="120" disabled></div>
+      <div class="field product"><label for="product">产品</label><input id="product" maxlength="120" disabled></div>
+      <div class="field total"><label for="total">生产总数</label><input id="total" inputmode="numeric" pattern="[0-9]*" maxlength="40" disabled></div>
+      <div class="field current"><label for="current">当前生产数</label><input id="current" inputmode="numeric" pattern="[0-9]*" maxlength="40" disabled></div>
+      <div class="field now"><label for="now">现在</label><input id="now" inputmode="numeric" pattern="[0-9]*" maxlength="40" disabled></div>
+      <button id="confirm" type="submit" disabled>确认</button>
+    </form>
+    <div id="message" class="message" role="alert"></div>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

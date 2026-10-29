@@ -1,0 +1,10 @@
+{
+  "name": "production-interface",
+  "version": "1.0.0",
+  "private": true,
+  "description": "实时多设备生产记录界面",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node --test" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "qrcode": "^1.5.4" }
+}
