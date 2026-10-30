@@ -1,0 +1,330 @@
+/*
+ * 界面1 —— 像素级还原
+ * 设计画布：1356 × 834（与原图 1:1），通过 transform: scale() 适配任意屏幕，
+ * 因此手机上看到的比例与设计稿完全一致。
+ *
+ * 关键坐标全部来自对原图的像素测量：
+ *   外框   (30,9) 1317×808  边框 6px  圆角 138px
+ *   输入框 (296,186)/(296,346)/(296,519)/(837,348)/(837,512)  232×70  边框 4px  圆角 11px
+ *   确认   (1030,711) 232×70 边框 4px 圆角 12px
+ *   二维码 (1092,71) 174×181 边框 4px 圆角 27px
+ */
+
+:root {
+  --serif: "Songti SC", "STSong", "NSimSun", "SimSun", "Noto Serif CJK SC",
+    "Source Han Serif SC", "Noto Serif SC", "Source Han Serif CN", serif;
+  --ink: #000;
+  --paper: #fff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--paper);
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--serif);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  touch-action: manipulation;
+}
+
+#viewport {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#stage {
+  position: relative;
+  width: 1356px;
+  height: 834px;
+  flex: none;
+  transform-origin: center center;
+}
+
+/* ------------------------------------------------------------------ 外框 */
+
+.card {
+  position: absolute;
+  left: 30px;
+  top: 9px;
+  width: 1317px;
+  height: 808px;
+  border: 6px solid var(--ink);
+  border-radius: 138px;
+  background: var(--paper);
+}
+
+/* ------------------------------------------------------------------ 标签 */
+
+.lbl {
+  position: absolute;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--ink);
+  user-select: none;
+}
+
+.lbl-order {
+  right: 1088px;
+  top: 202px;
+}
+.lbl-product {
+  right: 1088px;
+  top: 362px;
+}
+.lbl-current {
+  right: 1088px;
+  top: 532px;
+}
+.lbl-total {
+  right: 550px;
+  top: 363px;
+}
+.lbl-now {
+  right: 550px;
+  top: 522px;
+}
+
+/* 设计稿来自 Word，标签后带段落标记；默认隐藏，?marks=1 可还原 */
+.mark::after {
+  content: "↵";
+  font-weight: 400;
+  color: #b9b9b9;
+  margin-left: 2px;
+  display: none;
+}
+body.with-marks .mark::after {
+  display: inline;
+}
+
+/* ------------------------------------------------------------------ 输入框 */
+
+.box {
+  position: absolute;
+  width: 232px;
+  height: 70px;
+  padding: 0 10px;
+  border: 4px solid var(--ink);
+  border-radius: 11px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 400;
+  text-align: center;
+  letter-spacing: 1px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.box::selection {
+  background: #000;
+  color: #fff;
+}
+
+.box:focus {
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.07);
+}
+
+.box-order {
+  left: 296px;
+  top: 186px;
+}
+.box-product {
+  left: 296px;
+  top: 346px;
+}
+.box-current {
+  left: 296px;
+  top: 519px;
+}
+.box-total {
+  left: 837px;
+  top: 348px;
+  cursor: default;
+  color: var(--ink);
+}
+.box-now {
+  left: 837px;
+  top: 512px;
+}
+
+/* ------------------------------------------------------------------ 按钮 */
+
+.confirm {
+  position: absolute;
+  left: 1030px;
+  top: 711px;
+  width: 232px;
+  height: 70px;
+  padding: 0;
+  border: 4px solid var(--ink);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  transition: transform 60ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.confirm:hover {
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+}
+
+.confirm:active,
+.confirm.is-active {
+  transform: translateY(1px) scale(0.995);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.06);
+}
+
+.confirm.is-sending {
+  opacity: 0.55;
+}
+
+body.offline .confirm {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.confirm.shake {
+  animation: shake 320ms ease;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+/* ------------------------------------------------------------------ 二维码 */
+
+.qr-box {
+  position: absolute;
+  left: 1092px;
+  top: 71px;
+  width: 174px;
+  height: 181px;
+  border: 4px solid var(--ink);
+  border-radius: 27px;
+  background: var(--paper);
+}
+
+.qr-label {
+  position: absolute;
+  left: 14px;
+  top: 11px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.qr-img {
+  position: absolute;
+  left: 50%;
+  top: 50px;
+  width: 118px;
+  height: 118px;
+  transform: translateX(-50%);
+  display: block;
+  cursor: zoom-in;
+  image-rendering: pixelated;
+  background: #fff;
+}
+
+/* ------------------------------------------------------------------ 弹层 */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 10;
+  padding: 20px;
+}
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal-panel {
+  background: #fff;
+  border-radius: 20px;
+  padding: 22px 24px 18px;
+  text-align: center;
+  max-width: 92vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.modal-qr {
+  width: min(62vw, 320px);
+  height: min(62vw, 320px);
+  image-rendering: pixelated;
+}
+
+.modal-url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: #333;
+  word-break: break-all;
+  margin: 12px 0 14px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.modal-btn {
+  font-family: inherit;
+  font-size: 15px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: 1.5px solid #000;
+  background: #fff;
+  cursor: pointer;
+}
+
+.modal-btn:active {
+  background: #eee;
+}

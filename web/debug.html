@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>运行状态 · 界面1</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f7f7f8;
+        color: #111;
+      }
+      h1 { font-size: 20px; margin: 0 0 16px; }
+      h2 { font-size: 15px; margin: 24px 0 8px; color: #444; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+      .card { background: #fff; border: 1px solid #e3e3e6; border-radius: 12px; padding: 14px; }
+      .k { font-size: 12px; color: #777; }
+      .v { font-size: 20px; font-weight: 600; margin-top: 4px; }
+      table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e3e3e6; border-radius: 12px; overflow: hidden; }
+      th, td { padding: 8px 10px; font-size: 13px; text-align: left; border-bottom: 1px solid #efeff1; }
+      th { background: #fafafa; color: #555; font-weight: 600; }
+      .ok { color: #0a7d32; }
+      .bad { color: #c0272d; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+      button, a.btn {
+        font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 8px;
+        border: 1px solid #d0d0d5; background: #fff; cursor: pointer; text-decoration: none; color: #111;
+      }
+      button:hover, a.btn:hover { background: #f0f0f3; }
+      code { background: #eee; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>界面1 · 运行状态</h1>
+
+    <div class="grid" id="cards"></div>
+
+    <h2>多语言服务</h2>
+    <table>
+      <thead><tr><th>服务</th><th>语言</th><th>职责</th><th>状态</th><th>PID</th></tr></thead>
+      <tbody id="svc"></tbody>
+    </table>
+
+    <h2>生产统计（Python 审计服务）</h2>
+    <div class="grid" id="stats"></div>
+
+    <h2>最近确认记录</h2>
+    <table>
+      <thead><tr><th>时间</th><th>生产单</th><th>产品</th><th>本次</th><th>累计总数</th><th>版本</th></tr></thead>
+      <tbody id="hist"></tbody>
+    </table>
+
+    <div class="row">
+      <button id="refresh">刷新本页数据</button>
+      <a class="btn" href="/api/export.csv">导出 CSV</a>
+      <a class="btn" href="/">← 回到看板</a>
+      <button id="reset" style="margin-left:auto;border-color:#e0b4b6;color:#c0272d">清空看板数据（危险）</button>
+    </div>
+
+    <script>
+      const fmtTime = (ms) => (ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-');
+
+      async function j(url) {
+        const r = await fetch(url, { cache: 'no-store' });
+        return r.json();
+      }
+
+      function card(k, v, cls) {
+        return `<div class="card"><div class="k">${k}</div><div class="v ${cls || ''}">${v}</div></div>`;
+      }
+
+      async function load() {
+        const [health, stats, hist] = await Promise.all([
+          j('/api/health'),
+          j('/api/stats').catch(() => ({ ok: false })),
+          j('/api/history?limit=20').catch(() => ({ items: [] })),
+        ]);
+
+        const state = await j('/api/state');
+
+        document.getElementById('cards').innerHTML = [
+          card('生产单', state.state.order_no || '—'),
+          card('产品', state.state.product || '—'),
+          card('生产总数', state.state.total),
+          card('当前生产数', state.state.current),
+          card('现在', state.state.now),
+          card('在线设备', health.peers),
+          card('版本号 rev', health.rev),
+          card('C 内核', health.core.ready ? '在线' : '离线', health.core.ready ? 'ok' : 'bad'),
+          card('内核往返延迟', health.core.last_latency_ms + ' ms'),
+          card('运行时长', Math.floor(health.uptime_sec / 60) + ' 分 ' + (health.uptime_sec % 60) + ' 秒'),
+        ].join('');
+
+        const meta = {
+          journal: ['C++', '追加写 WAL / CRC32 校验 / 崩溃恢复'],
+          engine: ['C', '权威状态机 / 确认事务 / 输入校验'],
+          analytics: ['Python', '审计日志解析 / 统计聚合 / CSV 导出'],
+        };
+        document.getElementById('svc').innerHTML = health.services
+          .map((s) => {
+            const m = meta[s.name] || ['TypeScript', '网关与实时推送'];
+            return `<tr><td>${s.name}</td><td>${m[0]}</td><td>${m[1]}</td>
+              <td class="${s.running ? 'ok' : 'bad'}">${s.running ? '运行中' : '未运行'}</td><td>${s.pid || '-'}</td></tr>`;
+          })
+          .join('') +
+          `<tr><td>gateway</td><td>TypeScript</td><td>HTTP / WebSocket 实时广播 / 二维码</td>
+           <td class="ok">运行中</td><td>${'-'}</td></tr>`;
+
+        document.getElementById('stats').innerHTML = stats.ok
+          ? [
+              card('累计产量', stats.produced_total),
+              card('确认次数', stats.commits),
+              card('节拍(件/分)', stats.rate_per_min),
+              card('损坏日志行', stats.corrupt_lines, stats.corrupt_lines ? 'bad' : ''),
+              card('最近确认', stats.last_commit ? fmtTime(stats.last_commit.ts) : '—'),
+              card('日志记录数', stats.records),
+            ].join('')
+          : card('Python 审计服务', '不可用', 'bad');
+
+        const items = hist.items || [];
+        document.getElementById('hist').innerHTML = items.length
+          ? items
+              .map(
+                (r) =>
+                  `<tr><td>${fmtTime(r.ts)}</td><td>${r.order_no || '—'}</td><td>${r.product || '—'}</td>
+                   <td>+${r.delta}</td><td>${r.total}</td><td>${r.rev}</td></tr>`,
+              )
+              .join('')
+          : '<tr><td colspan="6" style="color:#888">暂无确认记录</td></tr>';
+      }
+
+      document.getElementById('refresh').addEventListener('click', load);
+      document.getElementById('reset').addEventListener('click', async () => {
+        if (!confirm('确认清空生产单/产品/生产总数/当前生产数？此操作会写入审计日志。')) return;
+        await fetch('/api/reset', { method: 'POST' });
+        load();
+      });
+
+      load();
+      setInterval(load, 3000);
+    </script>
+  </body>
+</html>

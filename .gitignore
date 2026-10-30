@@ -1,0 +1,9 @@
+node_modules/
+bin/
+server/dist/
+web/app.js
+data/
+logs/
+*.o
+*.log
+.DS_Store
