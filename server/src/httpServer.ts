@@ -91,6 +91,31 @@ function serveStatic(res: http.ServerResponse, name: string): void {
   });
 }
 
+function readJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+  return new Promise((resolve) => {
+    let raw = '';
+    let size = 0;
+    req.setEncoding('utf8');
+    req.on('data', (chunk: string) => {
+      size += chunk.length;
+      if (size > 8192) {
+        req.destroy();
+        resolve({});
+        return;
+      }
+      raw += chunk;
+    });
+    req.on('end', () => {
+      try {
+        resolve(raw ? (JSON.parse(raw) as Record<string, unknown>) : {});
+      } catch {
+        resolve({});
+      }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
+
 export interface HubLike {
   readonly size: number;
 }
@@ -156,6 +181,37 @@ export function createHttpServer(deps: ServerDeps): http.Server {
       if (url === '/api/stats' || url === '/api/history' || url === '/api/export.csv') {
         return proxyAnalytics(req, res, raw);
       }
+    }
+
+    // ---- HTTP 兜底通道：某些网络会掐掉 WebSocket，此时改用 POST + 轮询 ----
+    if (req.method === 'POST' && (url === '/api/set' || url === '/api/confirm')) {
+      void readJsonBody(req).then(async (body) => {
+        try {
+          if (url === '/api/set') {
+            const field = String(body.field ?? '');
+            if (!['order_no', 'product', 'current', 'now'].includes(field)) {
+              sendJson(res, { ok: false, error: 'BAD_FIELD' }, 400);
+              return;
+            }
+            const u = await deps.board.setField(
+              field as 'order_no' | 'product' | 'current' | 'now',
+              body.value as string | number,
+            );
+            sendJson(res, { ok: true, rev: u.rev, state: u.state });
+          } else {
+            const amount = Number(body.amount ?? 0);
+            if (!Number.isFinite(amount) || amount < 0) {
+              sendJson(res, { ok: false, error: 'BAD_AMOUNT' }, 400);
+              return;
+            }
+            const u = await deps.board.confirm(Math.trunc(amount), 'http');
+            sendJson(res, { ok: true, rev: u.rev, state: u.state, delta: u.commit?.delta ?? 0 });
+          }
+        } catch (err) {
+          sendJson(res, { ok: false, error: (err as Error).message }, 500);
+        }
+      });
+      return;
     }
 
     if (req.method === 'POST' && url === '/api/reset') {

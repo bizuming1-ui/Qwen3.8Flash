@@ -61,6 +61,9 @@ let backoff = 200;
 let busy = false;
 let lastPong = Date.now();
 let heartbeat: number | null = null;
+/** 最近一次成功从服务端拿到状态的时刻（WS 或 HTTP 兜底都算） */
+let lastSync = 0;
+let pollTimer: number | null = null;
 
 const lastLocalEdit = new Map<string, number>();
 
@@ -80,7 +83,9 @@ function connect(): void {
     connected = true;
     backoff = 200;
     lastPong = Date.now();
+    lastSync = Date.now();
     document.body.classList.remove('offline');
+    stopPolling();
     startHeartbeat();
     send({ t: 'sync' });
   };
@@ -90,8 +95,9 @@ function connect(): void {
   };
   ws.onclose = () => {
     connected = false;
-    document.body.classList.add('offline');
     stopHeartbeat();
+    // WebSocket 不可用时立即切到 HTTP 轮询兜底，界面不会变成"死的"
+    startPolling();
     scheduleReconnect();
   };
 }
@@ -126,9 +132,69 @@ function stopHeartbeat(): void {
   }
 }
 
-function send(payload: unknown): void {
+type Outgoing = { t: string; [k: string]: unknown };
+
+function httpPost(path: string, body: unknown): Promise<Record<string, unknown> | null> {
+  return fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  })
+    .then((r) => (r.ok ? (r.json() as Promise<Record<string, unknown>>) : null))
+    .catch(() => null);
+}
+
+function applyHttpResult(data: Record<string, unknown> | null): void {
+  if (!data || !data.state) return;
+  lastSync = Date.now();
+  document.body.classList.remove('offline');
+  rev = Math.max(rev, Number(data.rev ?? rev));
+  applyState(data.state as BoardState, true);
+}
+
+function send(payload: Outgoing): void {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(payload));
+    return;
+  }
+  // 兜底：网络掐掉 WebSocket 时走 HTTP
+  if (payload.t === 'set') {
+    void httpPost('/api/set', { field: payload.field, value: payload.value });
+  } else if (payload.t === 'confirm') {
+    void httpPost('/api/confirm', { amount: payload.amount }).then(applyHttpResult);
+  }
+}
+
+function startPolling(): void {
+  if (pollTimer !== null) return;
+  pollTimer = window.setInterval(() => {
+    if (connected) {
+      stopPolling();
+      return;
+    }
+    fetch('/api/state', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data: { rev?: number; state?: BoardState }) => {
+        if (!data || !data.state) return;
+        lastSync = Date.now();
+        document.body.classList.remove('offline');
+        const r = Number(data.rev ?? 0);
+        if (r > rev) {
+          rev = r;
+          applyState(data.state, false);
+        }
+      })
+      .catch(() => {
+        if (Date.now() - lastSync > 6000) document.body.classList.add('offline');
+      });
+  }, 1000);
+}
+
+function stopPolling(): void {
+  if (pollTimer !== null) {
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
 }
 
@@ -149,6 +215,7 @@ function handleMessage(raw: string): void {
       const isCommit = Boolean(msg.commit);
       if (r < rev && !isCommit) return;
       rev = r;
+      lastSync = Date.now();
       applyState(state, isCommit);
       break;
     }
@@ -267,7 +334,8 @@ function flashConfirm(): void {
 }
 
 function doConfirm(): void {
-  if (!connected) {
+  const online = connected || Date.now() - lastSync < 8000;
+  if (!online) {
     flashConfirm();
     return;
   }
@@ -285,7 +353,11 @@ function doConfirm(): void {
   elNow.value = '';
   lastLocalEdit.set('now', 0);
 
-  send({ t: 'confirm', amount });
+  if (connected) {
+    send({ t: 'confirm', amount });
+  } else {
+    void httpPost('/api/confirm', { amount }).then(applyHttpResult);
+  }
 
   setTimeout(() => {
     busy = false;
