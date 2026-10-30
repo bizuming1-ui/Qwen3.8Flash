@@ -315,6 +315,39 @@ body.offline .confirm {
   margin: 12px 0 14px;
 }
 
+.modal-share {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 10px auto 12px;
+  max-width: min(80vw, 460px);
+}
+
+.modal-input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  padding: 8px 10px;
+  border: 1.5px solid #000;
+  border-radius: 10px;
+  outline: none;
+}
+
+.modal-hint {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #444;
+  text-align: left;
+  max-width: min(78vw, 420px);
+  margin: 0 auto 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f6f6f7;
+  border: 1px solid #e6e6e9;
+  white-space: pre-line;
+}
+
 .modal-actions {
   display: flex;
   gap: 10px;

@@ -82,13 +82,13 @@ export class Hub {
     try {
       if (t === 'set') {
         const field = String(msg.field ?? '');
-        if (!['order_no', 'product', 'current', 'now'].includes(field)) {
+        if (!['order_no', 'product', 'current', 'now', 'total'].includes(field)) {
           this.send(ws, { t: 'error', message: 'BAD_FIELD' });
           return;
         }
         const value = msg.value as string | number;
         const update = await this.board.setField(
-          field as 'order_no' | 'product' | 'current' | 'now',
+          field as 'order_no' | 'product' | 'current' | 'now' | 'total',
           value,
         );
         // setField 内部已通过 board 'update' 广播；此处只回执版本号给发起方

@@ -435,7 +435,8 @@ static void handle_line(Client *c, char *line) {
             changed = set_text(g_board.order_no, val);
         } else if (strcmp(field, "product") == 0) {
             changed = set_text(g_board.product, val);
-        } else if (strcmp(field, "current") == 0 || strcmp(field, "now") == 0) {
+        } else if (strcmp(field, "current") == 0 || strcmp(field, "now") == 0 ||
+                   strcmp(field, "total") == 0) {
             unsigned long long v = 0;
             if (!parse_u64(val, &v)) {
                 reply_err(c, "BAD_NUMBER");
@@ -444,6 +445,11 @@ static void handle_line(Client *c, char *line) {
             if (strcmp(field, "current") == 0) {
                 if (g_board.current != v) {
                     g_board.current = v;
+                    changed = 1;
+                }
+            } else if (strcmp(field, "total") == 0) {
+                if (g_board.total != v) {
+                    g_board.total = v;
                     changed = 1;
                 }
             } else {
@@ -474,14 +480,12 @@ static void handle_line(Client *c, char *line) {
         } else {
             delta = g_board.now;
         }
-        /* 唯一事务：当前生产数、生产总数累加，现在清零 */
+        /* 唯一事务：把「现在」的数值累加进「当前生产数」，然后「现在」清零。
+         * 「生产总数」由用户手工设定（比如订单总需求量），确认不会改动它。 */
         unsigned long long next_current = g_board.current + delta;
-        unsigned long long next_total = g_board.total + delta;
         if (next_current > NUM_CAP) next_current = NUM_CAP;
-        if (next_total > NUM_CAP) next_total = NUM_CAP;
         unsigned long long applied = next_current - g_board.current;
         g_board.current = next_current;
-        g_board.total = next_total;
         g_board.now = 0;
         g_board.rev++;
         journal_append("COMMIT", applied);

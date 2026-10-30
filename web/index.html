@@ -36,7 +36,7 @@
           <input id="current" class="box box-current" type="text" inputmode="numeric" autocomplete="off" />
 
           <label class="lbl lbl-total mark" for="total">生产总数</label>
-          <input id="total" class="box box-total" type="text" readonly tabindex="-1" />
+          <input id="total" class="box box-total" type="text" inputmode="numeric" autocomplete="off" />
 
           <label class="lbl lbl-now mark" for="now">现在</label>
           <input id="now" class="box box-now" type="text" inputmode="numeric" autocomplete="off" />
@@ -52,6 +52,17 @@
         <div class="modal-title">扫码进入同一块看板</div>
         <img id="qrBig" class="modal-qr" alt="二维码" />
         <div id="joinUrl" class="modal-url"></div>
+        <div class="modal-share">
+          <input
+            id="shareInput"
+            class="modal-input"
+            type="url"
+            autocomplete="off"
+            placeholder="自定义分享地址，例如 http://192.168.1.20:3000"
+          />
+          <button id="saveShare" class="modal-btn" type="button">保存</button>
+        </div>
+        <div id="joinHint" class="modal-hint"></div>
         <div class="modal-actions">
           <button id="copyUrl" class="modal-btn" type="button">复制链接</button>
           <button id="closeModal" class="modal-btn" type="button">关闭</button>

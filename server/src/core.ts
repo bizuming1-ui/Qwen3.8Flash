@@ -187,7 +187,7 @@ export class CoreClient extends EventEmitter {
   }
 
   set(
-    field: 'order_no' | 'product' | 'current' | 'now',
+    field: 'order_no' | 'product' | 'current' | 'now' | 'total',
     value: string | number,
   ): Promise<CoreResult> {
     const raw =

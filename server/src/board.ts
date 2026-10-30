@@ -58,7 +58,7 @@ export class Board extends EventEmitter {
   }
 
   async setField(
-    field: 'order_no' | 'product' | 'current' | 'now',
+    field: 'order_no' | 'product' | 'current' | 'now' | 'total',
     value: string | number,
   ): Promise<BoardUpdate> {
     let v: string | number = value;

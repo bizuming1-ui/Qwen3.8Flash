@@ -16,7 +16,31 @@ type BoardState = {
   now: number;
 };
 
-type FieldKey = 'order_no' | 'product' | 'current' | 'now';
+type FieldKey = 'order_no' | 'product' | 'current' | 'now' | 'total';
+
+/** 平台（E2B）访问令牌参数：私有沙盒要求每个请求都带，透传即可让扫码生效 */
+const AUTH_PARAM = 'e2b-traffic-access-token';
+
+function authToken(): string | null {
+  try {
+    const v = new URLSearchParams(location.search).get(AUTH_PARAM);
+    if (v) {
+      sessionStorage.setItem(AUTH_PARAM, v);
+      return v;
+    }
+    return sessionStorage.getItem(AUTH_PARAM);
+  } catch {
+    return new URLSearchParams(location.search).get(AUTH_PARAM);
+  }
+}
+
+/** 给同源请求补上平台令牌（浏览器不会自动带自定义头，只能靠查询参数） */
+function withAuth(url: string): string {
+  const token = authToken();
+  if (!token) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}${AUTH_PARAM}=${encodeURIComponent(token)}`;
+}
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -69,7 +93,7 @@ const lastLocalEdit = new Map<string, number>();
 
 function wsUrl(): string {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${location.host}/ws`;
+  return withAuth(`${proto}//${location.host}/ws`);
 }
 
 function connect(): void {
@@ -135,7 +159,7 @@ function stopHeartbeat(): void {
 type Outgoing = { t: string; [k: string]: unknown };
 
 function httpPost(path: string, body: unknown): Promise<Record<string, unknown> | null> {
-  return fetch(path, {
+  return fetch(withAuth(path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -173,7 +197,7 @@ function startPolling(): void {
       stopPolling();
       return;
     }
-    fetch('/api/state', { cache: 'no-store' })
+    fetch(withAuth('/api/state'), { cache: 'no-store' })
       .then((r) => r.json())
       .then((data: { rev?: number; state?: BoardState }) => {
         if (!data || !data.state) return;
@@ -239,8 +263,9 @@ function applyState(state: BoardState, isCommit: boolean): void {
   setInput(elProduct, state.product ?? '', 'product', false);
   // 数字字段：确认时必须强制回填（现在清零、当前生产数累加）
   setInput(elCurrent, fmtNum(state.current ?? 0), 'current', isCommit);
-  setInput(elTotal, fmtNum(state.total ?? 0), 'total', true);
   setInput(elNow, fmtNum(state.now ?? 0), 'now', isCommit);
+  // 生产总数由用户手工设定，确认不会改动它，也不强推
+  setInput(elTotal, fmtNum(state.total ?? 0), 'total', false);
 }
 
 function setInput(
@@ -312,9 +337,10 @@ bindField(elOrder, 'order_no', false);
 bindField(elProduct, 'product', false);
 bindField(elCurrent, 'current', true);
 bindField(elNow, 'now', true);
+bindField(elTotal, 'total', true);
 
 /* 回车：确认输入（现在）或结束编辑 */
-[elOrder, elProduct, elCurrent, elNow].forEach((el) => {
+[elOrder, elProduct, elCurrent, elNow, elTotal].forEach((el) => {
   el.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') {
       ev.preventDefault();
@@ -377,20 +403,56 @@ elConfirm.addEventListener('dblclick', (e) => e.preventDefault());
 /* ---------------------------------------------------------------- 二维码 */
 
 function loadQr(): void {
-  elQr.src = `/api/qr.svg?ts=${Math.floor(Date.now() / 10000)}`;
+  elQr.src = withAuth(`/api/qr.svg?ts=${Math.floor(Date.now() / 10000)}`);
 }
 
 async function openQrModal(): Promise<void> {
   elModal.hidden = false;
   elQrBig.src = elQr.src;
+  const hint = $('joinHint');
   try {
-    const res = await fetch('/api/join-url', { cache: 'no-store' });
-    const data = (await res.json()) as { url?: string };
+    const res = await fetch(withAuth('/api/join-url'), { cache: 'no-store' });
+    const data = (await res.json()) as {
+      url?: string;
+      token_embedded?: boolean;
+      custom_url?: string | null;
+    };
     elJoinUrl.textContent = data.url ?? location.origin;
+    shareInput.value = data.custom_url ?? '';
+    hint.textContent = data.token_embedded
+      ? '✅ 链接已带上平台访问令牌，手机扫码即可直接进入同一块看板。'
+      : '⚠️ 当前沙盒限制了公网访问（E2B 私有沙盒），裸链接扫码会被平台拦截并返回 403。\n可行方式二选一：\n① 在手机上打开 Arena 里的本会话，预览面板会自动带上访问令牌；\n② 让平台把这个沙盒设为「允许公开访问」，此二维码随即可以直接扫码进入。\n（本页右上角的二维码始终是实时生成的，条件满足后无需任何改动。）';
   } catch {
     elJoinUrl.textContent = location.origin;
+    hint.textContent = '无法获取分享链接，请检查服务是否在线。';
   }
 }
+
+const shareInput = $<HTMLInputElement>('shareInput');
+$('saveShare').addEventListener('click', async () => {
+  const btn = $('saveShare');
+  btn.textContent = '保存中…';
+  try {
+    const res = await fetch(withAuth('/api/share'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: shareInput.value.trim() }),
+    });
+    const data = (await res.json()) as { ok?: boolean; url?: string; custom_url?: string | null };
+    if (data.ok) {
+      btn.textContent = '已保存';
+      elJoinUrl.textContent = data.url ?? location.origin;
+      shareInput.value = data.custom_url ?? '';
+      elQr.src = withAuth(`/api/qr.svg?ts=${Date.now()}`);
+      elQrBig.src = elQr.src;
+    } else {
+      btn.textContent = '地址格式不对';
+    }
+  } catch {
+    btn.textContent = '保存失败';
+  }
+  setTimeout(() => (btn.textContent = '保存'), 1600);
+});
 
 elQr.addEventListener('click', () => void openQrModal());
 $('qrbox').addEventListener('click', () => void openQrModal());

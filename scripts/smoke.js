@@ -95,9 +95,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   clientA.send(JSON.stringify({ t: 'set', field: 'order_no', value: `PO-${stamp}` }));
   check('B 实时收到 A 填写的生产单', Boolean(await seenOrder));
 
-  const seenProduct = waitFor(clientB, (m) => m.t === 'state' && m.state.product === '齿轮箱', 3000).catch(() => null);
-  clientA.send(JSON.stringify({ t: 'set', field: 'product', value: '齿轮箱' }));
+  const productName = `齿轮箱-${stamp}`;
+  const seenProduct = waitFor(
+    clientB,
+    (m) => m.t === 'state' && m.state.product === productName,
+    3000,
+  ).catch(() => null);
+  clientA.send(JSON.stringify({ t: 'set', field: 'product', value: productName }));
   check('B 实时收到 A 填写的产品', Boolean(await seenProduct));
+
+  // 生产总数由用户手工设定，确认不会改动它
+  const totalValue = 100000 + Number(stamp);
+  const seenTotal = waitFor(
+    clientB,
+    (m) => m.t === 'state' && m.state.total === totalValue,
+    3000,
+  ).catch(() => null);
+  clientA.send(JSON.stringify({ t: 'set', field: 'total', value: totalValue }));
+  check('生产总数可以手工设定', Boolean(await seenTotal));
 
   const before = JSON.parse((await get('/api/state')).body).state;
   const amount = 37;
@@ -109,7 +124,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const after = JSON.parse((await get('/api/state')).body).state;
   check('现在 清零', after.now === 0, `now=${after.now}`);
   check('当前生产数 累加', after.current === before.current + amount, `${before.current} -> ${after.current}`);
-  check('生产总数 累加', after.total === before.total + amount, `${before.total} -> ${after.total}`);
+  check('生产总数 不受确认影响', after.total === before.total, `${before.total} -> ${after.total}`);
 
   await sleep(350);
   const stats = JSON.parse((await get('/api/stats')).body);
