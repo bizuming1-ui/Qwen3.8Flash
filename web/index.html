@@ -15,7 +15,11 @@
   <body>
     <div id="viewport">
       <div id="stage">
-        <div class="card">
+        <!-- 只负责画外框，作为背景层 -->
+        <div class="card"></div>
+
+        <!-- 坐标层：inset:0 铺满 1356×834，子元素坐标 = 设计稿像素坐标 -->
+        <div class="layer">
           <!-- 二维码：其他设备扫码进入同一块看板（多用户协同） -->
           <div id="qrbox" class="qr-box" title="扫码进入看板">
             <span class="qr-label mark">二维码</span>
