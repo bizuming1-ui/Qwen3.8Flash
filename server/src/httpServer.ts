@@ -134,6 +134,7 @@ export function createHttpServer(deps: ServerDeps): http.Server {
   let logged = 0;
   // 只存公开的云端地址；管理员密码和 service-role key 不进入浏览器或日志。
   const cloudUrl = (process.env.CLOUD_BOARD_URL || '').trim().replace(/\/+$/, '');
+  const cloudPublicUrl = (process.env.CLOUD_PUBLIC_URL || '').trim();
 
   /* 自定义分享地址（例如自托管时的局域网 IP、反向代理域名、隧道地址） */
   const shareFile = path.join(DATA_DIR, 'share.json');
@@ -147,7 +148,7 @@ export function createHttpServer(deps: ServerDeps): http.Server {
   }
 
   const saveCustomBase = (value: string | null): boolean => {
-    customBase = value && value.trim() ? value.trim().replace(/\/+$/, '') : null;
+    customBase = value && value.trim() ? value.trim() : null;
     try {
       fs.mkdirSync(DATA_DIR, { recursive: true });
       fs.writeFileSync(shareFile, JSON.stringify({ base_url: customBase }, null, 2));
@@ -159,8 +160,10 @@ export function createHttpServer(deps: ServerDeps): http.Server {
   };
 
   const joinUrlFor = (autoBase: string): string => {
-    const base = customBase ?? (cloudUrl || autoBase);
-    return `${base.replace(/\/+$/, '')}/`;
+    // 自定义地址可能含路径或查询参数；不得把斜杠拼到查询值上。
+    if (customBase) return customBase;
+    if (cloudPublicUrl) return cloudPublicUrl;
+    return `${autoBase.replace(/\/+$/, '')}/`;
   };
 
   const debugReq = process.env.DEBUG_REQ === '1';
@@ -220,7 +223,7 @@ export function createHttpServer(deps: ServerDeps): http.Server {
           url: joinUrlFor(base),
           auto_url: `${base}/`,
           custom_url: customBase,
-          hosting: cloudUrl ? 'supabase' : (process.env.E2B_SANDBOX === 'true' && !customBase ? 'private_sandbox' : 'self_hosted'),
+          hosting: cloudPublicUrl ? 'supabase' : (process.env.E2B_SANDBOX === 'true' && !customBase ? 'private_sandbox' : 'self_hosted'),
         });
       }
 
@@ -230,7 +233,7 @@ export function createHttpServer(deps: ServerDeps): http.Server {
           uptime_sec: Math.round((Date.now() - deps.startedAt) / 1000),
           rev: deps.board.snapshot().rev,
           peers: deps.hub.size,
-          share_link_ready: Boolean(cloudUrl || customBase || process.env.E2B_SANDBOX !== 'true'),
+          share_link_ready: Boolean(cloudPublicUrl || customBase || process.env.E2B_SANDBOX !== 'true'),
           core: {
             ready: deps.core.isReady,
             last_latency_ms: Number(deps.core.lastLatencyMs.toFixed(3)),
@@ -310,9 +313,14 @@ export function createHttpServer(deps: ServerDeps): http.Server {
       if (!deps.auth.fromRequest(req)) return sendJson(res, { ok: false, error: 'ADMIN_REQUIRED' }, 403);
       void readJsonBody(req).then((body) => {
         const value = body.url === null || body.url === undefined ? '' : String(body.url);
-        if (value && !/^https?:\/\/[^\s]+$/i.test(value)) {
-          sendJson(res, { ok: false, error: 'BAD_URL' }, 400);
-          return;
+        if (value) {
+          try {
+            const parsed = new URL(value);
+            if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || /\s/.test(value)) throw new Error('BAD_URL');
+          } catch {
+            sendJson(res, { ok: false, error: 'BAD_URL' }, 400);
+            return;
+          }
         }
         const ok = saveCustomBase(value || null);
         const base = publicBaseUrl(

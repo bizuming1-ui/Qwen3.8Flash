@@ -20,11 +20,11 @@ function freePort() {
     s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });
   });
 }
-function start(port, analyticsPort) {
+function start(port, analyticsPort, cloudApi = '', publicPage = '') {
   return new Promise((resolve, reject) => {
     const data = path.join(dir, 'data');
     const sock = path.join(dir, 'sock');
-    const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port), ANALYTICS_PORT: String(analyticsPort), DATA_DIR: data, SOCK_DIR: sock, BOARD_ADMIN_PASSWORD: password, CLOUD_BOARD_URL: '' };
+    const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port), ANALYTICS_PORT: String(analyticsPort), DATA_DIR: data, SOCK_DIR: sock, BOARD_ADMIN_PASSWORD: password, CLOUD_BOARD_URL: cloudApi, CLOUD_PUBLIC_URL: publicPage };
     child = spawn(process.execPath, ['server/dist/index.js'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
     let log = '';
     const timeout = setTimeout(() => reject(new Error(`服务器启动超时: ${log}`)), 15000);
@@ -95,6 +95,11 @@ async function main() {
     assert.equal(login.status, 200);
     const token = login.data.token;
     assert.ok(token);
+    const customUrl = 'https://example.com/board/?x=123';
+    assert.equal((await post('/api/share', { url: customUrl }, token)).data.url, customUrl);
+    assert.equal((await get('/api/join-url')).data.url, customUrl);
+    assert.equal((await post('/api/share', { url: 'https://user:pass@example.com/' }, token)).data.error, 'BAD_URL');
+    assert.equal((await post('/api/share', { url: '' }, token)).status, 200);
     const a = await wsOpen(base);
     const b = await wsOpen(base);
     const seen = wsWait(b, (m) => m.t === 'state' && m.state.order_no === 'PO-双端-🚀');
@@ -113,7 +118,9 @@ async function main() {
     assert.equal(await coreCommand('SET current 9'), 'ERR READ_ONLY');
     assert.equal(await coreCommand('SET total 4'), 'ERR TOTAL_TOO_SMALL');
     assert.equal(await coreCommand('CONFIRM 59'), 'ERR EXCEEDS_TOTAL');
+    assert.equal((await post('/api/set', { field: 'now', value: 59 })).status, 200);
     const before = (await get('/api/state')).data;
+    assert.equal(before.state.now, 59);
     const tooLarge = await post('/api/confirm', { amount: 59 });
     assert.equal(tooLarge.status, 409);
     assert.equal(tooLarge.data.error, 'EXCEEDS_TOTAL');
@@ -125,9 +132,13 @@ async function main() {
     assert.ok(state.state.current <= state.state.total);
     assert.ok([30, 45].includes(state.state.current));
     assert.equal(state.state.total, 63);
+    assert.equal((await post('/api/confirm', { amount: 63 - state.state.current })).status, 200, '恰好达到总数应允许');
+    state = (await get('/api/state')).data;
+    assert.equal(state.state.current, 63);
+    assert.equal((await post('/api/confirm', { amount: 1 })).data.error, 'EXCEEDS_TOTAL');
     const stats = (await get('/api/stats')).data;
     assert.equal(stats.ok, true);
-    assert.equal(stats.commits, 2);
+    assert.equal(stats.commits, 3);
     assert.ok((await get('/api/history?limit=5')).data.items.length >= 2);
     assert.match(await (await fetch(base + '/api/export.csv')).text(), /本次数量/);
     a.close(); b.close();
@@ -143,7 +154,15 @@ async function main() {
     assert.equal(reset.status, 200);
     assert.ok(reset.data.rev > afterRestart.rev, '清空后的版本必须递增');
     assert.deepEqual([reset.data.state.total, reset.data.state.current, reset.data.state.now], [0, 0, 0]);
-    console.log('✔ 本地隔离回归通过：权限、只读、超额、并发、多端、日志、重启和清空');
+    await stop();
+    const cloudApi = 'https://example.test/functions/v1/qwen-board';
+    const publicPage = 'https://example.test/board/?version=1';
+    await start(port, analyticsPort, cloudApi, publicPage);
+    assert.equal((await get('/api/config')).data.cloud_url, cloudApi);
+    assert.equal((await get('/api/join-url')).data.url, publicPage, '二维码必须指向公网网页而不是 API 函数');
+    const qr = await fetch(base + '/api/qr.svg');
+    assert.equal(qr.headers.get('x-join-url'), publicPage);
+    console.log('✔ 本地隔离回归通过：权限、只读、超额、并发、多端、日志、重启和云端二维码');
   } catch (e) { failures = String(e.stack || e); }
   finally { try { await stop(); } finally { fs.rmSync(dir, { recursive: true, force: true }); } }
   if (failures) throw new Error(failures);

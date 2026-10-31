@@ -33,6 +33,13 @@ async function main() {
     await phone.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
     const errors = [];
     for (const page of [desktop, phone]) page.on('pageerror', (e) => errors.push(e.message));
+    // 首次启动时网络失败也应自动重试，而不是只能手动刷新。
+    await desktop.setRequestInterception(true);
+    let blockedConfig = false;
+    desktop.on('request', (request) => {
+      if (!blockedConfig && request.url().endsWith('/api/config')) { blockedConfig = true; void request.abort(); }
+      else void request.continue();
+    });
     await Promise.all([desktop.goto(base, { waitUntil: 'domcontentloaded' }), phone.goto(base, { waitUntil: 'domcontentloaded' })]);
     await Promise.all([desktop, phone].map((p) => p.waitForFunction(() => document.querySelector('#qr')?.getAttribute('src'))));
     assert.equal(await desktop.$eval('#current', (el) => el.readOnly), true, '当前生产数必须只读');

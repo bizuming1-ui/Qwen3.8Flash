@@ -26,7 +26,7 @@ async function rpc(name: string, args: Record<string, unknown> = {}, authorizati
 }
 async function share(): Promise<{ url: string; custom_url: string | null; hosting: string }> {
   const custom = await rpc('qwen_board_get_share');
-  const url = typeof custom === 'string' && custom ? `${custom.replace(/\/+$/, '')}/` : PAGE_URL;
+  const url = typeof custom === 'string' && custom ? custom : PAGE_URL;
   return { url, custom_url: typeof custom === 'string' ? custom : null, hosting: 'supabase' };
 }
 function codeStatus(message: string): number {

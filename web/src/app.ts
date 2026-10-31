@@ -50,6 +50,9 @@ let lastSync = 0;
 let rev = -1;
 let latest: BoardState = { order_no: '', product: '', total: 0, current: 0, now: 0 };
 let busy = false;
+let starting = false;
+let bootstrapTimer: number | null = null;
+let bootstrapDelay = 500;
 let ws: WebSocket | null = null;
 let reconnectTimer: number | null = null;
 let reconnectDelay = 200;
@@ -429,7 +432,17 @@ $('copyUrl').addEventListener('click', async () => {
 });
 
 /* ------------------------------------------------------------------ 启动 */
+function retryStartup(): void {
+  if (ready || bootstrapTimer !== null) return;
+  bootstrapTimer = window.setTimeout(() => {
+    bootstrapTimer = null;
+    void start();
+  }, bootstrapDelay);
+  bootstrapDelay = Math.min(10000, Math.round(bootstrapDelay * 1.8));
+}
 async function start(): Promise<void> {
+  if (ready || starting) return;
+  starting = true;
   document.body.classList.add('offline');
   try {
     const res = await fetch(`${mount}/api/config`, { cache: 'no-store' });
@@ -471,10 +484,19 @@ async function start(): Promise<void> {
     await refreshState();
     window.setInterval(() => void refreshState(), 2000);
     window.setInterval(() => { if (mode === 'local' && connected && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'ping' })); }, 15000);
-  } catch (e) { showError(e); }
+  } catch (e) { showError(e); retryStartup(); }
+  finally { starting = false; }
 }
 if (new URLSearchParams(location.search).get('marks') === '1') document.body.classList.add('with-marks');
 updateAdminUI();
 void start();
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { if (mode === 'local') connectLocal(); void refreshState(); } });
-window.addEventListener('online', () => { if (mode === 'local') connectLocal(); void refreshState(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    if (!ready) void start();
+    else { if (mode === 'local') connectLocal(); void refreshState(); }
+  }
+});
+window.addEventListener('online', () => {
+  if (!ready) void start();
+  else { if (mode === 'local') connectLocal(); void refreshState(); }
+});

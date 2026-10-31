@@ -44,12 +44,13 @@ export BOARD_ADMIN_PASSWORD
 npm start
 ```
 
-打开 <http://localhost:3000/>。本地管理员只使用上述密码；未配置密码时管理操作会拒绝，不能靠默认密码登录。在局域网部署时，手机和主机需要网络互通。Arena 的私有预览地址可能被平台网关拦截，不能当作公网扫码地址。
+打开 <http://localhost:3000/>。本地管理员只使用上述密码；未配置密码时管理操作会拒绝，不能靠默认密码登录。在局域网部署时，手机和主机需要网络互通；非本机生产环境应使用 HTTPS 反向代理，避免密码通过明文 HTTP 传输。Arena 的私有预览地址可能被平台网关拦截，不能当作公网扫码地址。
 
 需要让本地预览**使用同一个线上看板**时：
 
 ```bash
-CLOUD_BOARD_URL=https://cdaplcswcdjfbkdbabji.supabase.co/functions/v1/qwen-board npm start
+CLOUD_BOARD_URL=https://cdaplcswcdjfbkdbabji.supabase.co/functions/v1/qwen-board \
+CLOUD_PUBLIC_URL=https://bizuming1-ui.github.io/Qwen3.8Flash/ npm start
 ```
 
 此时浏览器的读写和二维码使用 Supabase / GitHub Pages；本机 C 状态并不冒充线上状态。
@@ -75,4 +76,4 @@ BOARD_ADMIN_PASSWORD='本地密码' npm run smoke
 
 `npm test` 覆盖管理员权限、当前数只读、上限拒绝、并发确认、两端广播、审计、重启恢复和清空后的递增版本。二维码弹层显示当前分享地址。`/debug.html` 提供状态、统计、历史和 CSV 导出；线上 CSV 最多导出最近 10000 条记录。管理员操作需先在同一浏览器会话登录。
 
-线上故障排查顺序：确认 GitHub Pages 已发布；再检查 Supabase 数据库、Auth、Realtime 和 Edge Function 的状态。不要把 Supabase service-role key 或管理员密码放进 GitHub、浏览器脚本或二维码。
+线上故障排查顺序：确认 GitHub Pages 已发布；再检查 Supabase 数据库、Auth、Realtime 和 Edge Function 的状态。`qwen-board-verify` 是只读的部署自检函数，不修改生产数据。不要把 Supabase service-role key 或管理员密码放进 GitHub、浏览器脚本或二维码。
