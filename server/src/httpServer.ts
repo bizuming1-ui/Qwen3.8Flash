@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 
-import { ANALYTICS_URL, DATA_DIR, PORT, WEB_DIR } from './config';
+import { ANALYTICS_URL, DATA_DIR, NUM_CAP, PORT, WEB_DIR } from './config';
+import type { AdminAuth } from './auth';
 import type { Board } from './board';
 import type { CoreClient } from './core';
 import { publicBaseUrl, qrSvg } from './qr';
@@ -123,22 +124,16 @@ export interface HubLike {
 export interface ServerDeps {
   board: Board;
   core: CoreClient;
+  auth: AdminAuth;
   hub: HubLike;
   startedAt: number;
   children: () => Array<{ name: string; pid: number | undefined; running: boolean }>;
 }
 
-/** 平台（E2B）访问令牌参数名：私有沙盒要求每个请求都带它 */
-const AUTH_PARAM = 'e2b-traffic-access-token';
-
 export function createHttpServer(deps: ServerDeps): http.Server {
   let logged = 0;
-  /**
-   * 自愈式令牌捕获：如果平台/代理把令牌以查询参数透传到本服务（有些会，
-   * 因为 iframe 的 URL 可能带上它），我们就记住它，并把二维码改成带令牌的
-   * 可直接访问链接。拿不到时二维码仍是裸链接（并给出明确说明）。
-   */
-  let trafficToken: string | null = process.env.E2B_TRAFFIC_ACCESS_TOKEN || null;
+  // 只存公开的云端地址；管理员密码和 service-role key 不进入浏览器或日志。
+  const cloudUrl = (process.env.CLOUD_BOARD_URL || '').trim().replace(/\/+$/, '');
 
   /* 自定义分享地址（例如自托管时的局域网 IP、反向代理域名、隧道地址） */
   const shareFile = path.join(DATA_DIR, 'share.json');
@@ -164,26 +159,14 @@ export function createHttpServer(deps: ServerDeps): http.Server {
   };
 
   const joinUrlFor = (autoBase: string): string => {
-    const base = customBase ?? autoBase;
-    if (!trafficToken) return `${base}/`;
-    return `${base}/?${AUTH_PARAM}=${encodeURIComponent(trafficToken)}`;
+    const base = customBase ?? (cloudUrl || autoBase);
+    return `${base.replace(/\/+$/, '')}/`;
   };
 
   const debugReq = process.env.DEBUG_REQ === '1';
 
   const server = http.createServer((req, res) => {
     const raw = req.url ?? '/';
-    if (raw.includes(AUTH_PARAM)) {
-      try {
-        const v = new URL(raw, 'http://placeholder').searchParams.get(AUTH_PARAM);
-        if (v && v !== trafficToken) {
-          trafficToken = v;
-          console.log('[share] 已捕获平台访问令牌，二维码将改为可直接扫码访问的链接');
-        }
-      } catch {
-        /* ignore */
-      }
-    }
     if (debugReq && logged < 30) {
       logged += 1;
       console.log(
@@ -215,6 +198,16 @@ export function createHttpServer(deps: ServerDeps): http.Server {
         return;
       }
 
+      if (url === '/api/config') {
+        return sendJson(res, cloudUrl
+          ? { ok: true, mode: 'redirect', cloud_url: cloudUrl }
+          : { ok: true, mode: 'local', admin_configured: deps.auth.configured });
+      }
+
+      if (url === '/api/admin/session') {
+        return sendJson(res, { ok: true, authenticated: deps.auth.fromRequest(req), configured: deps.auth.configured });
+      }
+
       if (url === '/api/state') {
         const snap = deps.board.snapshot();
         return sendJson(res, { ok: true, ...snap, peers: deps.hub.size });
@@ -227,8 +220,7 @@ export function createHttpServer(deps: ServerDeps): http.Server {
           url: joinUrlFor(base),
           auto_url: `${base}/`,
           custom_url: customBase,
-          // 是否已带上平台令牌（false 表示裸链接，手机直接扫会被平台 403 拦截）
-          token_embedded: Boolean(trafficToken),
+          hosting: cloudUrl ? 'supabase' : (process.env.E2B_SANDBOX === 'true' && !customBase ? 'private_sandbox' : 'self_hosted'),
         });
       }
 
@@ -238,7 +230,7 @@ export function createHttpServer(deps: ServerDeps): http.Server {
           uptime_sec: Math.round((Date.now() - deps.startedAt) / 1000),
           rev: deps.board.snapshot().rev,
           peers: deps.hub.size,
-          share_link_ready: Boolean(trafficToken),
+          share_link_ready: Boolean(cloudUrl || customBase || process.env.E2B_SANDBOX !== 'true'),
           core: {
             ready: deps.core.isReady,
             last_latency_ms: Number(deps.core.lastLatencyMs.toFixed(3)),
@@ -252,6 +244,21 @@ export function createHttpServer(deps: ServerDeps): http.Server {
       }
     }
 
+    if (req.method === 'POST' && url === '/api/admin/login') {
+      void readJsonBody(req).then((body) => {
+        const password = typeof body.password === 'string' ? body.password.slice(0, 1024) : '';
+        const result = deps.auth.login(password, req.socket.remoteAddress || 'unknown');
+        if (result.token) sendJson(res, { ok: true, token: result.token });
+        else sendJson(res, { ok: false, error: result.error }, result.error === 'ADMIN_NOT_CONFIGURED' ? 503 : 401);
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && url === '/api/admin/logout') {
+      deps.auth.logout(req);
+      return sendJson(res, { ok: true });
+    }
+
     // ---- HTTP 兜底通道：某些网络会掐掉 WebSocket，此时改用 POST + 轮询 ----
     if (req.method === 'POST' && (url === '/api/set' || url === '/api/confirm')) {
       void readJsonBody(req).then(async (body) => {
@@ -262,6 +269,21 @@ export function createHttpServer(deps: ServerDeps): http.Server {
               sendJson(res, { ok: false, error: 'BAD_FIELD' }, 400);
               return;
             }
+            if (field === 'current') {
+              sendJson(res, { ok: false, error: 'READ_ONLY' }, 403);
+              return;
+            }
+            if (field === 'total' && !deps.auth.fromRequest(req)) {
+              sendJson(res, { ok: false, error: 'ADMIN_REQUIRED' }, 403);
+              return;
+            }
+            if (field === 'total' || field === 'now') {
+              const value = Number(body.value);
+              if (!Number.isSafeInteger(value) || value < 0 || value > NUM_CAP) {
+                sendJson(res, { ok: false, error: 'BAD_NUMBER' }, 400);
+                return;
+              }
+            }
             const u = await deps.board.setField(
               field as 'order_no' | 'product' | 'current' | 'now' | 'total',
               body.value as string | number,
@@ -269,7 +291,7 @@ export function createHttpServer(deps: ServerDeps): http.Server {
             sendJson(res, { ok: true, rev: u.rev, state: u.state });
           } else {
             const amount = Number(body.amount ?? 0);
-            if (!Number.isFinite(amount) || amount < 0) {
+            if (!Number.isSafeInteger(amount) || amount <= 0 || amount > NUM_CAP) {
               sendJson(res, { ok: false, error: 'BAD_AMOUNT' }, 400);
               return;
             }
@@ -277,13 +299,15 @@ export function createHttpServer(deps: ServerDeps): http.Server {
             sendJson(res, { ok: true, rev: u.rev, state: u.state, delta: u.commit?.delta ?? 0 });
           }
         } catch (err) {
-          sendJson(res, { ok: false, error: (err as Error).message }, 500);
+          const code = (err as Error).message;
+          sendJson(res, { ok: false, error: code }, ['EXCEEDS_TOTAL', 'TOTAL_TOO_SMALL'].includes(code) ? 409 : 500);
         }
       });
       return;
     }
 
     if (req.method === 'POST' && url === '/api/share') {
+      if (!deps.auth.fromRequest(req)) return sendJson(res, { ok: false, error: 'ADMIN_REQUIRED' }, 403);
       void readJsonBody(req).then((body) => {
         const value = body.url === null || body.url === undefined ? '' : String(body.url);
         if (value && !/^https?:\/\/[^\s]+$/i.test(value)) {
@@ -301,6 +325,7 @@ export function createHttpServer(deps: ServerDeps): http.Server {
     }
 
     if (req.method === 'POST' && url === '/api/reset') {
+      if (!deps.auth.fromRequest(req)) return sendJson(res, { ok: false, error: 'ADMIN_REQUIRED' }, 403);
       deps.board
         .reset()
         .then((u) => sendJson(res, { ok: true, rev: u.rev, state: u.state }))

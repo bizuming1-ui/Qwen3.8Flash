@@ -44,7 +44,7 @@ export async function qrSvg(text: string): Promise<string> {
   const svg = await QRCode.toString(text, {
     type: 'svg',
     errorCorrectionLevel: 'M',
-    margin: 1,
+    margin: 4,
     width: 512,
     color: { dark: '#000000ff', light: '#ffffffff' },
   });

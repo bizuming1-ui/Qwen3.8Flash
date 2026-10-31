@@ -4,13 +4,13 @@
     <meta charset="utf-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#ffffff" />
     <title>界面1 · 生产看板</title>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div id="viewport">
@@ -33,15 +33,41 @@
           <input id="product" class="box box-product" type="text" autocomplete="off" spellcheck="false" />
 
           <label class="lbl lbl-current mark" for="current">当前生产数</label>
-          <input id="current" class="box box-current" type="text" inputmode="numeric" autocomplete="off" />
+          <input id="current" class="box box-current" type="text" readonly aria-readonly="true" tabindex="-1" title="由确认操作自动累计，不可手动输入" />
 
           <label class="lbl lbl-total mark" for="total">生产总数</label>
-          <input id="total" class="box box-total" type="text" inputmode="numeric" autocomplete="off" />
+          <input id="total" class="box box-total" type="text" inputmode="numeric" autocomplete="off" readonly aria-readonly="true" title="管理员登录后设置生产总数" />
 
           <label class="lbl lbl-now mark" for="now">现在</label>
           <input id="now" class="box box-now" type="text" inputmode="numeric" autocomplete="off" />
 
           <button id="confirm" class="confirm mark" type="button">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="adminEntry" class="admin-entry" type="button">管理员登录</button>
+    <div id="notice" class="notice" role="alert" aria-live="assertive" hidden></div>
+
+    <div id="adminModal" class="modal" hidden>
+      <div class="modal-panel admin-panel" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+        <div id="adminTitle" class="modal-title">管理员登录</div>
+        <p id="adminStatus" class="admin-status">管理员可以设置生产总数和清空看板。</p>
+        <form id="adminForm">
+          <label id="adminEmailLabel" class="admin-label" for="adminEmail">管理员邮箱</label>
+          <input id="adminEmail" class="admin-input" type="email" autocomplete="username" />
+          <label class="admin-label" for="adminPassword">密码</label>
+          <input id="adminPassword" class="admin-input" type="password" autocomplete="current-password" />
+          <div id="adminError" class="admin-error" role="alert"></div>
+          <div class="modal-actions">
+            <button id="adminLogin" class="modal-btn" type="submit">登录</button>
+            <button id="adminClose" class="modal-btn" type="button">取消</button>
+          </div>
+        </form>
+        <div id="adminActions" class="modal-actions" hidden>
+          <button id="adminReset" class="modal-btn danger" type="button">清空看板</button>
+          <button id="adminLogout" class="modal-btn" type="button">退出登录</button>
+          <button id="adminDone" class="modal-btn" type="button">关闭</button>
         </div>
       </div>
     </div>
@@ -70,6 +96,6 @@
       </div>
     </div>
 
-    <script src="/app.js" defer></script>
+    <script src="app.js" defer></script>
   </body>
 </html>

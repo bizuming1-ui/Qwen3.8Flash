@@ -26,8 +26,9 @@ if [ -z "$TSC" ]; then
 fi
 
 "$TSC" -p server/tsconfig.json
-"$TSC" --module none --target ES2020 --lib ES2020,DOM --strict --skipLibCheck \
-      --outFile web/app.js web/src/app.ts
+"$TSC" -p web/tsconfig.json
+"$ROOT/node_modules/.bin/esbuild" web/src/app.ts --bundle --minify --platform=browser \
+      --target=es2020 --outfile=web/app.js
 
 echo "==> 构建完成"
 ls -lh bin | sed 's/^/    /'

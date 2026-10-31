@@ -7,7 +7,8 @@
  *
  * 职责
  *   - 持有看板状态：生产单 / 产品 / 生产总数 / 当前生产数 / 现在 + 版本号 rev
- *   - 唯一的「确认」事务：current += n; total += n; now = 0; rev++
+ *   - 唯一的「确认」事务：current += n; now = 0; rev++（total 不变）
+ *   - current 只读；确认及修改 total 时保证 current <= total
  *   - 输入校验（数字上限、UTF-8 截断、控制字符过滤）
  *   - 把每一次状态变更以 KV 协议推给 C++ 日志服务落盘（WAL）
  *   - 启动时从 C++ 日志服务回放最后一条有效记录，实现崩溃恢复
@@ -435,19 +436,22 @@ static void handle_line(Client *c, char *line) {
             changed = set_text(g_board.order_no, val);
         } else if (strcmp(field, "product") == 0) {
             changed = set_text(g_board.product, val);
-        } else if (strcmp(field, "current") == 0 || strcmp(field, "now") == 0 ||
-                   strcmp(field, "total") == 0) {
+        } else if (strcmp(field, "current") == 0) {
+            /* 不仅 UI 只读，绕过网关直接发协议也不能改累计数。 */
+            reply_err(c, "READ_ONLY");
+            return;
+        } else if (strcmp(field, "now") == 0 || strcmp(field, "total") == 0) {
             unsigned long long v = 0;
             if (!parse_u64(val, &v)) {
                 reply_err(c, "BAD_NUMBER");
                 return;
             }
-            if (strcmp(field, "current") == 0) {
-                if (g_board.current != v) {
-                    g_board.current = v;
-                    changed = 1;
+            if (strcmp(field, "total") == 0) {
+                /* 管理员也不能把总数调到已生产数量以下。 */
+                if (v < g_board.current) {
+                    reply_err(c, "TOTAL_TOO_SMALL");
+                    return;
                 }
-            } else if (strcmp(field, "total") == 0) {
                 if (g_board.total != v) {
                     g_board.total = v;
                     changed = 1;
@@ -480,16 +484,21 @@ static void handle_line(Client *c, char *line) {
         } else {
             delta = g_board.now;
         }
-        /* 唯一事务：把「现在」的数值累加进「当前生产数」，然后「现在」清零。
-         * 「生产总数」由用户手工设定（比如订单总需求量），确认不会改动它。 */
-        unsigned long long next_current = g_board.current + delta;
-        if (next_current > NUM_CAP) next_current = NUM_CAP;
-        unsigned long long applied = next_current - g_board.current;
-        g_board.current = next_current;
+        /* 在唯一串行点先验证再提交；失败时不动任何字段、版本或日志。
+         * 使用差值比较避免加法溢出；总数为 0 时任何正数也不能确认。 */
+        if (delta == 0) {
+            reply_err(c, "BAD_AMOUNT");
+            return;
+        }
+        if (g_board.current > g_board.total || delta > g_board.total - g_board.current) {
+            reply_err(c, "EXCEEDS_TOTAL");
+            return;
+        }
+        g_board.current += delta;
         g_board.now = 0;
         g_board.rev++;
-        journal_append("COMMIT", applied);
-        reply_commit(c, applied);
+        journal_append("COMMIT", delta);
+        reply_commit(c, delta);
         return;
     }
     if (strcmp(cmd, "RESET") == 0) {

@@ -30,6 +30,16 @@ function get(path) {
   });
 }
 
+function post(path, body) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, (res) => {
+      let data = ''; res.setEncoding('utf8'); res.on('data', (x) => { data += x; });
+      res.on('end', () => { try { resolve({ status: res.statusCode, data: JSON.parse(data) }); } catch (e) { reject(e); } });
+    });
+    req.on('error', reject); req.end(JSON.stringify(body));
+  });
+}
+
 function open() {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(WS_URL);
@@ -81,6 +91,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check('三个子服务都在运行', (health.services || []).filter((s) => s.running).length === 3,
     JSON.stringify((health.services || []).map((s) => `${s.name}:${s.running}`)));
 
+  const adminPassword = process.env.BOARD_ADMIN_PASSWORD;
+  if (!adminPassword) throw new Error('请设置 BOARD_ADMIN_PASSWORD 后运行 smoke；此脚本会修改目标看板。');
+  const login = await post('/api/admin/login', { password: adminPassword });
+  if (!login.data.token) throw new Error('管理员登录失败：' + login.data.error);
+  const adminToken = login.data.token;
+  check('管理员登录成功', login.status === 200);
+  check('当前生产数在页面中只读', /id="current"[^>]*readonly/.test(page.body));
+
   const clientA = await open();
   const clientB = await open();
   const helloB = await waitFor(clientB, (m) => m.t === 'hello');
@@ -105,13 +123,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check('B 实时收到 A 填写的产品', Boolean(await seenProduct));
 
   // 生产总数由用户手工设定，确认不会改动它
-  const totalValue = 100000 + Number(stamp);
+  const existing = JSON.parse((await get('/api/state')).body).state;
+  const totalValue = Math.max(existing.current + 100, 100000 + Number(stamp));
   const seenTotal = waitFor(
     clientB,
     (m) => m.t === 'state' && m.state.total === totalValue,
     3000,
   ).catch(() => null);
-  clientA.send(JSON.stringify({ t: 'set', field: 'total', value: totalValue }));
+  clientA.send(JSON.stringify({ t: 'set', field: 'total', value: totalValue, admin_token: adminToken }));
   check('生产总数可以手工设定', Boolean(await seenTotal));
 
   const before = JSON.parse((await get('/api/state')).body).state;

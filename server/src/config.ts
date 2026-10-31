@@ -4,7 +4,7 @@ import path from 'node:path';
 /** 仓库根目录（server/dist/config.js -> server/dist -> server -> 根） */
 export const ROOT = path.resolve(__dirname, '..', '..');
 export const WEB_DIR = path.join(ROOT, 'web');
-export const DATA_DIR = path.join(ROOT, 'data');
+export const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, 'data');
 export const BIN_DIR = path.join(ROOT, 'bin');
 export const LOG_DIR = path.join(ROOT, 'logs');
 

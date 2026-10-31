@@ -92,7 +92,10 @@ export class CoreClient extends EventEmitter {
       this.ready = false;
       const waiting = this.pending;
       this.pending = [];
-      for (const p of waiting) p.reject(err ?? new Error('core disconnected'));
+      for (const p of waiting) {
+        if (p.timer) clearTimeout(p.timer);
+        p.reject(err ?? new Error('core disconnected'));
+      }
       if (this.timer) return;
       const delay = Math.min(2000, 100 * 2 ** this.retry++);
       this.timer = setTimeout(() => {
@@ -139,6 +142,7 @@ export class CoreClient extends EventEmitter {
       };
     } else if (parts[0] === 'ERR') {
       const p = this.pending.shift();
+      if (p?.timer) clearTimeout(p.timer);
       p?.reject(new Error(parts.slice(1).join(' ') || 'core error'));
       return;
     }
@@ -165,9 +169,9 @@ export class CoreClient extends EventEmitter {
         reject,
       };
       entry.timer = setTimeout(() => {
-        const idx = this.pending.indexOf(entry);
-        if (idx >= 0) this.pending.splice(idx, 1);
-        reject(new Error('core timeout'));
+        // 行协议按顺序配对响应。超时后不能仅移除这一项，否则迟到响应会误配给下个请求。
+        // 断开连接并让所有等待者失败，重新连接后再获取权威快照。
+        sock.destroy(new Error('core timeout'));
       }, timeoutMs);
       entry.timer.unref();
 

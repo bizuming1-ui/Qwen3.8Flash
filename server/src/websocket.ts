@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 
 import { WebSocket, WebSocketServer } from 'ws';
 
+import type { AdminAuth } from './auth';
 import type { Board, BoardUpdate } from './board';
 
 interface ClientMeta {
@@ -19,7 +20,7 @@ export class Hub {
   private seq = 1;
   private heartbeat: NodeJS.Timeout;
 
-  constructor(server: Server, private readonly board: Board) {
+  constructor(server: Server, private readonly board: Board, private readonly auth: AdminAuth) {
     this.wss = new WebSocketServer({ server, path: '/ws', perMessageDeflate: false });
     this.wss.on('connection', (ws) => this.onConnection(ws));
     this.board.on('update', (u: BoardUpdate) => this.broadcastState(u));
@@ -83,7 +84,15 @@ export class Hub {
       if (t === 'set') {
         const field = String(msg.field ?? '');
         if (!['order_no', 'product', 'current', 'now', 'total'].includes(field)) {
-          this.send(ws, { t: 'error', message: 'BAD_FIELD' });
+          this.send(ws, { t: 'error', message: 'BAD_FIELD', field });
+          return;
+        }
+        if (field === 'current') {
+          this.send(ws, { t: 'error', message: 'READ_ONLY', field });
+          return;
+        }
+        if (field === 'total' && !this.auth.valid(msg.admin_token)) {
+          this.send(ws, { t: 'error', message: 'ADMIN_REQUIRED', field });
           return;
         }
         const value = msg.value as string | number;
@@ -109,7 +118,7 @@ export class Hub {
         this.send(ws, { t: 'state', rev: snap.rev, state: snap.state });
       }
     } catch (err) {
-      this.send(ws, { t: 'error', message: (err as Error).message });
+      this.send(ws, { t: 'error', message: (err as Error).message, action: t, field: msg.field });
     }
   }
 

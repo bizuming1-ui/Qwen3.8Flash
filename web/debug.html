@@ -55,21 +55,24 @@
 
     <div class="row">
       <button id="refresh">刷新本页数据</button>
-      <a class="btn" href="/api/export.csv">导出 CSV</a>
-      <a class="btn" href="/">← 回到看板</a>
+      <a id="exportCsv" class="btn" href="api/export.csv">导出 CSV</a>
+      <a class="btn" href="./">← 回到看板</a>
       <button id="reset" style="margin-left:auto;border-color:#e0b4b6;color:#c0272d">清空看板数据（危险）</button>
     </div>
 
     <script>
+      let apiBase = document.querySelector('meta[name="board-base"]')?.content?.replace(/\/+$/, '') || '';
       const fmtTime = (ms) => (ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-');
+      const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
       async function j(url) {
-        const r = await fetch(url, { cache: 'no-store' });
+        const r = await fetch(apiBase + url, { cache: 'no-store' });
+        if (!r.ok) throw new Error('请求失败');
         return r.json();
       }
 
       function card(k, v, cls) {
-        return `<div class="card"><div class="k">${k}</div><div class="v ${cls || ''}">${v}</div></div>`;
+        return `<div class="card"><div class="k">${escapeHtml(k)}</div><div class="v ${cls || ''}">${escapeHtml(v)}</div></div>`;
       }
 
       async function load() {
@@ -89,12 +92,13 @@
           card('现在', state.state.now),
           card('在线设备', health.peers),
           card('版本号 rev', health.rev),
-          card('C 内核', health.core.ready ? '在线' : '离线', health.core.ready ? 'ok' : 'bad'),
+          card(health.runtime === 'supabase' ? '云数据库' : 'C 内核', health.runtime === 'supabase' || health.core.ready ? '在线' : '离线', health.runtime === 'supabase' || health.core.ready ? 'ok' : 'bad'),
           card('内核往返延迟', health.core.last_latency_ms + ' ms'),
           card('运行时长', Math.floor(health.uptime_sec / 60) + ' 分 ' + (health.uptime_sec % 60) + ' 秒'),
         ].join('');
 
         const meta = {
+          database: ['PostgreSQL', '云端事务 / 持久化 / 权限'],
           journal: ['C++', '追加写 WAL / CRC32 校验 / 崩溃恢复'],
           engine: ['C', '权威状态机 / 确认事务 / 输入校验'],
           analytics: ['Python', '审计日志解析 / 统计聚合 / CSV 导出'],
@@ -102,7 +106,7 @@
         document.getElementById('svc').innerHTML = health.services
           .map((s) => {
             const m = meta[s.name] || ['TypeScript', '网关与实时推送'];
-            return `<tr><td>${s.name}</td><td>${m[0]}</td><td>${m[1]}</td>
+            return `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(m[0])}</td><td>${escapeHtml(m[1])}</td>
               <td class="${s.running ? 'ok' : 'bad'}">${s.running ? '运行中' : '未运行'}</td><td>${s.pid || '-'}</td></tr>`;
           })
           .join('') +
@@ -125,7 +129,7 @@
           ? items
               .map(
                 (r) =>
-                  `<tr><td>${fmtTime(r.ts)}</td><td>${r.order_no || '—'}</td><td>${r.product || '—'}</td>
+                  `<tr><td>${fmtTime(r.ts)}</td><td>${escapeHtml(r.order_no || '—')}</td><td>${escapeHtml(r.product || '—')}</td>
                    <td>+${r.delta}</td><td>${r.total}</td><td>${r.rev}</td></tr>`,
               )
               .join('')
@@ -135,12 +139,25 @@
       document.getElementById('refresh').addEventListener('click', load);
       document.getElementById('reset').addEventListener('click', async () => {
         if (!confirm('确认清空生产单/产品/生产总数/当前生产数？此操作会写入审计日志。')) return;
-        await fetch('/api/reset', { method: 'POST' });
+        let token = sessionStorage.getItem('qwen-board-local-admin') || '';
+        if (!token) {
+          try { token = JSON.parse(sessionStorage.getItem('qwen-board-admin-session') || '{}').access_token || ''; } catch { /* no session */ }
+        }
+        const r = await fetch(apiBase + '/api/reset', { method: 'POST', headers: token ? { Authorization: 'Bearer ' + token } : {} });
+        if (!r.ok) { alert('请先回到看板登录管理员，再进行清空。'); return; }
         load();
       });
 
-      load();
-      setInterval(load, 3000);
+      async function init() {
+        try {
+          const cfg = await j('/api/config');
+          if (cfg.mode === 'redirect') apiBase = cfg.cloud_url.replace(/\/+$/, '');
+          document.getElementById('exportCsv').href = apiBase + '/api/export.csv';
+          await load();
+          setInterval(() => load().catch(() => {}), 3000);
+        } catch { document.getElementById('cards').textContent = '连接失败，请检查网络。'; }
+      }
+      init();
     </script>
   </body>
 </html>

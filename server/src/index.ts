@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
+import { AdminAuth } from './auth';
 import { Board } from './board';
 import {
   ANALYTICS_PORT,
@@ -77,6 +78,7 @@ async function main(): Promise<void> {
   await sleep(120);
 
   const board = new Board(core);
+  const auth = new AdminAuth();
   await board.resync();
 
   // http 服务与 ws 服务互相依赖，用惰性引用解环
@@ -90,13 +92,14 @@ async function main(): Promise<void> {
   const server = createHttpServer({
     board,
     core,
+    auth,
     hub: hubRef,
     startedAt,
     children: () =>
       supervisor.status().map((s) => ({ name: s.name, pid: s.pid, running: s.running })),
   });
 
-  hub = new Hub(server, board);
+  hub = new Hub(server, board, auth);
 
   server.listen(PORT, HOST, () => {
     console.log(`[boot] 看板已就绪 http://${HOST}:${PORT}  rev=${board.snapshot().rev}`);

@@ -11,9 +11,12 @@
     "start": "bash scripts/dev.sh",
     "dev": "bash scripts/dev.sh",
     "clean": "rm -rf bin server/dist web/app.js data/journal.log* logs",
-    "smoke": "node scripts/smoke.js"
+    "smoke": "node scripts/smoke.js",
+    "build:pages": "npm run build && node scripts/build-pages.js",
+    "test": "node scripts/test-local.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "qrcode": "^1.5.4",
     "ws": "^8.18.3"
   },
@@ -21,6 +24,7 @@
     "@types/node": "^22.10.2",
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.5.13",
+    "esbuild": "^0.25.12",
     "typescript": "^5.7.2"
   }
 }
